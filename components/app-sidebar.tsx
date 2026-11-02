@@ -22,7 +22,7 @@ export function AppSidebar() {
     <aside className="sticky top-0 flex h-screen w-[220px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="px-5 pt-6 pb-7">
         <Link
-          href="/academic"
+          href="/dash"
           aria-label="JerokySys — Inicio"
           className="inline-flex"
         >

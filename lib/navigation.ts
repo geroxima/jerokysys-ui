@@ -6,6 +6,8 @@ import {
   Settings,
   Users,
   UsersRound,
+  ClipboardCheck,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,7 +28,7 @@ export const sidebarSections: SidebarSection[] = [
     items: [
       {
         label: "Inicio",
-        href: "/academic",
+        href: "/dash",
         icon: LayoutGrid,
         exact: true,
       },
@@ -39,6 +41,31 @@ export const sidebarSections: SidebarSection[] = [
         label: "Facturas",
         href: "/invoices",
         icon: FileText,
+      },
+    ],
+  },
+  {
+    label: "Académico",
+    items: [
+      {
+        label: "Clases",
+        href: "/classes",
+        icon: BookOpen,
+      },
+      {
+        label: "Disciplinas",
+        href: "/disciplines",
+        icon: GraduationCap,
+      },
+      {
+        label: "Exámenes",
+        href: "/exams",
+        icon: ClipboardCheck,
+      },
+      {
+        label: "Inscripciones",
+        href: "/enrollments",
+        icon: Users,
       },
     ],
   },
@@ -62,16 +89,7 @@ export const sidebarSections: SidebarSection[] = [
       },
     ],
   },
-  {
-    label: "Comunicación",
-    items: [
-      {
-        label: "Campañas",
-        href: "/campaigns",
-        icon: Megaphone,
-      },
-    ],
-  },
+
   {
     label: "Sistema",
     items: [

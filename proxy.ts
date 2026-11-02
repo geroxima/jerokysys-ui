@@ -10,13 +10,13 @@ export function proxy(request: NextRequest) {
 
   if (pathname === "/") {
     return NextResponse.redirect(
-      new URL(hasValidSession ? "/academic" : "/login", request.url),
+      new URL(hasValidSession ? "/dash" : "/login", request.url),
     );
   }
 
   if (pathname === "/login") {
     if (hasValidSession) {
-      return NextResponse.redirect(new URL("/academic", request.url));
+      return NextResponse.redirect(new URL("/dash", request.url));
     }
 
     return NextResponse.next();
