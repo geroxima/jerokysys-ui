@@ -44,7 +44,7 @@ alumnos, responsables, profesores, facturas, campañas, asistencia y ajustes.
 | `pnpm lint`  | Ejecuta ESLint                      |
 
 Abre [http://localhost:3000](http://localhost:3000). La ruta `/` redirige a
-`/login` o a `/academic` según el estado de la sesión.
+`/login` o a `/dash` según el estado de la sesión.
 
 ## Autenticación
 
@@ -64,8 +64,13 @@ añade la cabecera `Authorization: Bearer <token>`.
 | Ruta                     | Contenido                              |
 | ------------------------ | -------------------------------------- |
 | `/login`                 | Inicio de sesión                       |
-| `/academic`              | Inicio                                 |
-| `/academic/attendance`   | Asistencia                             |
+| `/dash`                  | Inicio                                 |
+| `/attendance`            | Asistencia                             |
+| `/classes`             | Clases           |
+| `/disciplines`         | Disciplinas      |
+| `/exams`               | Exámenes         |
+| `/exam-results`        | Resultados       |
+| `/enrollments`         | Inscripciones    |
 | `/invoices`              | Listado y filtros de facturas          |
 | `/invoices/new`          | Alta de factura                        |
 | `/invoices/[id]`         | Detalle de factura                     |

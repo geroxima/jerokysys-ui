@@ -73,7 +73,7 @@ export async function login(
   }
 
   await saveSession(token);
-  redirect("/academic");
+  redirect("/dash");
 }
 
 export async function logout() {
