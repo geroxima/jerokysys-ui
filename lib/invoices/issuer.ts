@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { InvoiceTimbrado, IssuerInfo } from "./types";
 
 const DEFAULT_TIMBRADO = "001";
@@ -7,12 +5,12 @@ const DEFAULT_SERIE = "001";
 
 function readIssuer(): IssuerInfo {
   return {
-    name: process.env.ISSUER_NAME?.trim() || "JerokySys",
-    ruc: process.env.ISSUER_RUC?.trim() || "",
-    address: process.env.ISSUER_ADDRESS?.trim() || "",
-    phone: process.env.ISSUER_PHONE?.trim() || "",
-    email: process.env.ISSUER_EMAIL?.trim() || "",
-    activity: process.env.ISSUER_ACTIVITY?.trim() || "",
+    name: process.env.NEXT_PUBLIC_ISSUER_NAME?.trim() || "JerokySys",
+    ruc: process.env.NEXT_PUBLIC_ISSUER_RUC?.trim() || "",
+    address: process.env.NEXT_PUBLIC_ISSUER_ADDRESS?.trim() || "",
+    phone: process.env.NEXT_PUBLIC_ISSUER_PHONE?.trim() || "",
+    email: process.env.NEXT_PUBLIC_ISSUER_EMAIL?.trim() || "",
+    activity: process.env.NEXT_PUBLIC_ISSUER_ACTIVITY?.trim() || "",
   };
 }
 
@@ -39,7 +37,7 @@ function normalizeTimbrado(raw: unknown): InvoiceTimbrado | null {
 }
 
 function readTimbrados(): InvoiceTimbrado[] {
-  const raw = process.env.INVOICE_TIMBRADOS?.trim();
+  const raw = process.env.NEXT_PUBLIC_INVOICE_TIMBRADOS?.trim();
 
   if (raw) {
     try {
@@ -63,7 +61,7 @@ function readTimbrados(): InvoiceTimbrado[] {
       }
     } catch {
       console.warn(
-        "INVOICE_TIMBRADOS no es un JSON válido. Se usa el timbrado 001-001.",
+        "NEXT_PUBLIC_INVOICE_TIMBRADOS no es un JSON válido. Se usa el timbrado 001-001.",
       );
     }
   }

@@ -25,14 +25,17 @@ alumnos, responsables, profesores, facturas, campañas, asistencia y ajustes.
    pnpm install
    ```
 
-2. Crea el archivo `.env.local` con la URL de la API:
+2. Copiá `.env.example` a `.env.local` y completá la URL de la API:
 
    ```bash
-   API_BASE_URL=http://localhost:8080/api/v1
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
+   # Opcional: URL que usa el login del lado del servidor.
+   # API_BASE_URL=http://localhost:8080/api/v1
    ```
 
-   Si no defines `API_BASE_URL`, la aplicación usa
-   `http://localhost:8080/api/v1`.
+   Si no la definís, la aplicación usa `http://localhost:8080/api/v1`.
+   Los datos fiscales del emisor (`NEXT_PUBLIC_ISSUER_*` y
+   `NEXT_PUBLIC_INVOICE_TIMBRADOS`) también van en `.env.local`.
 
 ## Scripts
 
@@ -48,16 +51,24 @@ Abre [http://localhost:3000](http://localhost:3000). La ruta `/` redirige a
 
 ## Autenticación
 
-1. El formulario de `/login` envía el usuario y la contraseña a
-   `POST {API_BASE_URL}/login`.
-2. La API responde con un JWT en texto plano.
-3. La aplicación guarda el JWT en la cookie `jerokysys_token`, con las opciones
-   `httpOnly`, `sameSite: lax` y `secure` en producción.
-4. `proxy.ts` redirige a `/login` si la sesión no existe o si el JWT expiró.
-5. El botón «Cerrar sesión» del encabezado borra la cookie y vuelve a `/login`.
+1. El formulario de `/login` llama a `POST /api/auth/login` (route handler de
+   Next).
+2. El handler envía las credenciales a `POST {API_BASE_URL}/login` y guarda el
+   JWT en la cookie `jerokysys_token`, con `httpOnly`, `sameSite: lax` y
+   `secure` en producción.
+3. `proxy.ts` redirige a `/login` si la sesión no existe o si el JWT expiró.
+4. Todas las llamadas de datos del navegador usan `lib/api-client.ts` con
+   `credentials: "include"`. El gateway copia la cookie a
+   `Authorization: Bearer` antes de validar el token.
+5. `POST /api/auth/logout` borra la cookie y `GET /api/auth/session` devuelve
+   usuario, rol y expiración (nunca el token).
+6. Si el gateway responde `401`, `lib/api-client.ts` limpia la sesión y vuelve a
+   `/login`.
 
-Para las solicitudes autenticadas, `lib/api.ts` expone `authFetch`. Esta función
-añade la cabecera `Authorization: Bearer <token>`.
+En producción, si la UI y la API viven en subdominios distintos, definí
+`AUTH_COOKIE_DOMAIN` (por ejemplo `.jerokysys.com`) para que la cookie se envíe
+también al host de la API. Si ambas comparten origen mediante un reverse proxy,
+no hace falta.
 
 ## Rutas
 
@@ -128,11 +139,13 @@ del emisor que falten se muestran como “sin configurar”, sin romper la panta
 ```text
 app/
   (app)/          Secciones protegidas y diseño con barra lateral
-  actions/        Acciones de servidor para iniciar y cerrar sesión
+  api/auth/       Route handlers de login, logout y sesión (cookie httpOnly)
   login/          Página de inicio de sesión
 components/       Encabezado, barra lateral, formulario y componentes de UI
   invoices/       Componentes de facturación
 lib/              Sesión, JWT, cliente de API, navegación y utilidades
+  api-client.ts   Capa única de fetch del navegador (cookie + errores + 401)
+  query/          Hooks de TanStack Query
   invoices/       Tipos, cliente y reglas de facturación
 proxy.ts          Protección de rutas
 ```
