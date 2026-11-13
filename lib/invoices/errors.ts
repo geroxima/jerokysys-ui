@@ -1,14 +1,7 @@
-export class InvoiceApiError extends Error {
-  readonly status: number;
-  readonly code?: string;
+import { ApiError } from "@/lib/api-client";
 
-  constructor(message: string, status: number, code?: string) {
-    super(message);
-    this.name = "InvoiceApiError";
-    this.status = status;
-    this.code = code;
-  }
-}
+/** Compatibilidad: el dominio de facturas usa el mismo error que el resto. */
+export { ApiError as InvoiceApiError };
 
 /**
  * El backend responde en inglés y con mensajes técnicos. Traducimos los casos
@@ -79,7 +72,7 @@ export function translateInvoiceError(message?: string | null): string {
 /** El backend rechaza números repetidos con HTTP 409 y código CONFLICT. */
 export function isDuplicateInvoiceNumber(error: unknown): boolean {
   return (
-    error instanceof InvoiceApiError &&
+    error instanceof ApiError &&
     (error.status === 409 ||
       error.code === "CONFLICT" ||
       /invoiceNumber already used/i.test(error.message))

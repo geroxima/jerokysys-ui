@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2, Lock } from "lucide-react";
 
-import {
-  createInvoiceAction,
-  updateInvoiceAction,
-} from "@/app/(app)/invoices/actions";
 import { InvoiceIssuerHeader } from "@/components/invoices/invoice-issuer-header";
 import { InvoiceLinesEditor } from "@/components/invoices/invoice-lines-editor";
 import { InvoiceTotals } from "@/components/invoices/invoice-totals";
@@ -26,6 +23,7 @@ import type {
   IssuerInfo,
 } from "@/lib/invoices/types";
 import { validateInvoiceForm } from "@/lib/invoices/validation";
+import { useCreateInvoice, useUpdateInvoice } from "@/lib/query/invoices";
 import { cn } from "@/lib/utils";
 
 const sheetInput =
@@ -52,10 +50,14 @@ export function InvoiceForm({
   fixedInvoiceNumber?: string;
   status?: InvoiceStatus;
 }) {
+  const router = useRouter();
+  const createInvoice = useCreateInvoice();
+  const updateInvoice = useUpdateInvoice();
+  const pending = createInvoice.isPending || updateInvoice.isPending;
+
   const [values, setValues] = useState<InvoiceFormValues>(initialValues);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
 
   const timbradoKey = `${values.timbrado}-${values.serie}`;
   const selectedTimbrado =
@@ -137,7 +139,7 @@ export function InvoiceForm({
     }, 60);
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
 
@@ -157,20 +159,24 @@ export function InvoiceForm({
       return;
     }
 
-    startTransition(async () => {
-      const response =
+    try {
+      const invoice =
         mode === "create"
-          ? await createInvoiceAction(values)
-          : await updateInvoiceAction(invoiceId as number, values);
+          ? await createInvoice.mutateAsync(result.data)
+          : await updateInvoice.mutateAsync({
+              id: invoiceId as number,
+              data: result.data,
+            });
 
-      if (!response.ok) {
-        setMessage(response.message);
-        if (response.fieldErrors) {
-          setErrors(response.fieldErrors);
-        }
-        revealFirstError();
-      }
-    });
+      router.push(`/invoices/${invoice.id}`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar la factura.",
+      );
+      revealFirstError();
+    }
   }
 
   return (

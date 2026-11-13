@@ -1,8 +1,7 @@
-import "server-only";
-
-import { authFetch } from "@/lib/api";
-import { InvoiceApiError, translateInvoiceError } from "./errors";
+import { ApiError, apiRequest as request } from "@/lib/api-client";
+import { isDuplicateInvoiceNumber, translateInvoiceError } from "./errors";
 import { invoiceTotal, roundCurrency } from "./format";
+import { buildInvoicePayload } from "./payload";
 import { nextInvoiceNumber } from "./numbering";
 import { INVOICE_PAGE_SIZE } from "./query";
 import type {
@@ -14,17 +13,10 @@ import type {
   InvoiceQuery,
   InvoiceStats,
   InvoiceStatus,
+  ParsedInvoice,
   SaleCondition,
   StatusSummary,
 } from "./types";
-
-type ApiEnvelope<T> = {
-  data: T;
-  message?: string;
-  code?: string | null;
-  status?: number;
-  success?: boolean;
-};
 
 type RawInvoiceDetail = {
   id?: number | null;
@@ -170,7 +162,7 @@ function statusMessage(status: number): string {
 
 function isTransient(error: unknown): boolean {
   return (
-    error instanceof InvoiceApiError &&
+    error instanceof ApiError &&
     (error.status === 0 || RETRYABLE_STATUSES.has(error.status))
   );
 }
@@ -183,65 +175,46 @@ async function apiRequestOnce<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  let response: Response;
+  const method = (init?.method ?? "GET").toUpperCase();
 
   try {
-    response = await authFetch(path, {
+    return await request<T>(path, {
       ...init,
       signal: AbortSignal.timeout(15_000),
     });
-  } catch {
-    throw new InvoiceApiError(
-      "No se pudo conectar con el servidor de facturación. Verificá que la API esté en línea.",
-      0,
-    );
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  const text = await response.text();
-  let body: ApiEnvelope<T> | null = null;
-  let parseError = false;
-
-  if (text) {
-    try {
-      body = JSON.parse(text) as ApiEnvelope<T>;
-    } catch {
-      parseError = true;
+  } catch (error) {
+    if (!(error instanceof ApiError)) {
+      throw new ApiError(
+        0,
+        null,
+        "No se pudo conectar con el servidor de facturación. Verificá que la API esté en línea.",
+      );
     }
-  }
 
-  if (response.ok && body && body.success !== false) {
-    return body.data;
-  }
+    if (error.status === 0) {
+      throw new ApiError(
+        0,
+        null,
+        "No se pudo conectar con el servidor de facturación. Verificá que la API esté en línea.",
+      );
+    }
 
-  if (response.ok) {
-    throw new InvoiceApiError(
-      "La respuesta del servidor no es válida.",
-      response.status,
+    if (error.status >= 500) {
+      console.error("[invoices] API error", {
+        path,
+        method,
+        status: error.status,
+        code: error.code,
+      });
+      throw new ApiError(error.status, error.code, statusMessage(error.status));
+    }
+
+    throw new ApiError(
+      error.status,
+      error.code,
+      translateInvoiceError(error.message),
     );
   }
-
-  if (response.status >= 500) {
-    console.error("[invoices] API error", {
-      path,
-      method: (init?.method ?? "GET").toUpperCase(),
-      status: response.status,
-      code: body?.code ?? null,
-      bodyPreview: text.slice(0, 500),
-    });
-  }
-
-  const message =
-    response.status >= 500
-      ? statusMessage(response.status)
-      : parseError
-        ? translateInvoiceError(undefined)
-        : translateInvoiceError(body?.message);
-
-  throw new InvoiceApiError(message, response.status, body?.code ?? undefined);
 }
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -361,6 +334,69 @@ export async function updateInvoice(
   return normalizeInvoice(raw);
 }
 
+/**
+ * Crea una factura generando el numero en el cliente. Si el backend rechaza
+ * el numero por duplicado, regenera y reintenta una vez.
+ */
+export async function createInvoiceFromForm(
+  data: ParsedInvoice,
+): Promise<Invoice> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const invoiceNumber = await getNextInvoiceNumber(
+        data.timbrado,
+        data.serie,
+      );
+      return await createInvoice(
+        buildInvoicePayload(data, 0, invoiceNumber),
+      );
+    } catch (error) {
+      if (attempt === 0 && isDuplicateInvoiceNumber(error)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new ApiError(
+    409,
+    "CONFLICT",
+    "No se pudo asignar un número de factura libre. Intentá de nuevo en unos segundos.",
+  );
+}
+
+/**
+ * Actualiza una factura pendiente reutilizando numero y timbrado actuales:
+ * el cliente nunca puede modificarlos.
+ */
+export async function updateInvoiceFromForm(
+  id: number,
+  data: ParsedInvoice,
+): Promise<Invoice> {
+  const current = await getInvoice(id);
+
+  if (current.paymentStatus !== "PENDING") {
+    throw new ApiError(
+      409,
+      null,
+      "Solo las facturas pendientes admiten cambios.",
+    );
+  }
+
+  return updateInvoice(
+    id,
+    buildInvoicePayload(
+      {
+        ...data,
+        timbrado: current.timbrado,
+        serie: data.serie,
+      },
+      id,
+      current.invoiceNumber,
+    ),
+  );
+}
+
 export async function changeInvoiceStatus(
   id: number,
   status: Extract<InvoiceStatus, "PAID" | "CANCELLED">,
@@ -376,14 +412,8 @@ export async function deleteInvoice(id: number): Promise<void> {
   await apiRequest<void>(`/invoices/${id}`, { method: "DELETE" });
 }
 
-export function isUnauthorized(error: unknown): boolean {
-  return error instanceof InvoiceApiError && error.status === 401;
-}
-
-export function isForbidden(error: unknown): boolean {
-  return error instanceof InvoiceApiError && error.status === 403;
-}
-
-export function isNotFound(error: unknown): boolean {
-  return error instanceof InvoiceApiError && error.status === 404;
-}
+export {
+  isForbidden,
+  isNotFound,
+  isUnauthorized,
+} from "@/lib/api-client";

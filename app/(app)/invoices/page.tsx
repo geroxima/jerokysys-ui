@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+"use client";
+
 import { Suspense } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 
 import { AccessDenied } from "@/components/access-denied";
@@ -13,9 +14,7 @@ import { InvoiceSummaryCards } from "@/components/invoices/invoice-summary-cards
 import { InvoicesSkeleton } from "@/components/invoices/invoices-skeleton";
 import { InvoicesTable } from "@/components/invoices/invoices-table";
 import { buttonVariants } from "@/components/ui/button";
-import { requireSession } from "@/lib/auth";
-import { getInvoiceStats, isUnauthorized, listInvoices } from "@/lib/invoices/api";
-import { InvoiceApiError } from "@/lib/invoices/errors";
+import { pluralize } from "@/lib/invoices/format";
 import { canAccessInvoices } from "@/lib/invoices/permissions";
 import {
   describeFilter,
@@ -23,35 +22,24 @@ import {
   isFiltered,
   parseInvoiceQuery,
 } from "@/lib/invoices/query";
-import { pluralize } from "@/lib/invoices/format";
+import { useInvoiceStats, useInvoices } from "@/lib/query/invoices";
+import { useSession } from "@/lib/query/session";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Facturas — JerokySys",
-};
+function InvoicesContent() {
+  const searchParams = useSearchParams();
+  const sessionQuery = useSession();
+  const query = parseInvoiceQuery(Object.fromEntries(searchParams.entries()));
+  const listQuery = useInvoices(query);
+  const statsQuery = useInvoiceStats();
 
-type InvoicesPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default function InvoicesPage({ searchParams }: InvoicesPageProps) {
-  return (
-    <div className="mx-auto w-full max-w-7xl px-8 py-10">
-      <Suspense fallback={<InvoicesSkeleton />}>
-        <InvoicesContent searchParams={searchParams} />
-      </Suspense>
-    </div>
-  );
-}
-
-async function InvoicesContent({ searchParams }: InvoicesPageProps) {
-  const session = await requireSession();
-
-  if (!canAccessInvoices(session.role)) {
-    return <AccessDenied />;
+  if (sessionQuery.isLoading) {
+    return <InvoicesSkeleton />;
   }
 
-  const query = parseInvoiceQuery(await searchParams);
+  if (!canAccessInvoices(sessionQuery.data?.role)) {
+    return <AccessDenied />;
+  }
 
   const header = (
     <header className="flex flex-wrap items-start justify-between gap-4">
@@ -72,34 +60,41 @@ async function InvoicesContent({ searchParams }: InvoicesPageProps) {
     </header>
   );
 
-  const statsPromise = getInvoiceStats().catch((error) => {
-    if (isUnauthorized(error)) {
-      redirect("/login");
-    }
-    return null;
-  });
-
-  let result;
-  try {
-    result = await listInvoices(query);
-  } catch (error) {
-    if (isUnauthorized(error)) {
-      redirect("/login");
-    }
-
-    if (error instanceof InvoiceApiError) {
-      return (
-        <div className="flex flex-col gap-6">
-          {header}
-          <InvoiceLoadError message={error.message} />
-        </div>
-      );
-    }
-
-    throw error;
+  if (listQuery.isLoading) {
+    return (
+      <div className="flex flex-col gap-6">
+        {header}
+        <InvoicesSkeleton />
+      </div>
+    );
   }
 
-  const stats = await statsPromise;
+  if (listQuery.isError) {
+    return (
+      <div className="flex flex-col gap-6">
+        {header}
+        <InvoiceLoadError
+          message={
+            listQuery.error instanceof Error
+              ? listQuery.error.message
+              : "No se pudieron cargar las facturas."
+          }
+          onRetry={() => {
+            void listQuery.refetch();
+            void statsQuery.refetch();
+          }}
+        />
+      </div>
+    );
+  }
+
+  const result = listQuery.data;
+
+  if (!result) {
+    return null;
+  }
+
+  const stats = statsQuery.data ?? null;
   const filtered = isFiltered(query);
   const activeDescription = describeFilter(query.filter);
 
@@ -194,6 +189,16 @@ async function InvoicesContent({ searchParams }: InvoicesPageProps) {
           />
         ) : null}
       </section>
+    </div>
+  );
+}
+
+export default function InvoicesPage() {
+  return (
+    <div className="mx-auto w-full max-w-7xl px-8 py-10">
+      <Suspense fallback={<InvoicesSkeleton />}>
+        <InvoicesContent />
+      </Suspense>
     </div>
   );
 }

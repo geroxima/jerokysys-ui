@@ -12,9 +12,11 @@ const UNAVAILABLE_STATUSES = new Set(["502", "503", "504"]);
 export function InvoiceLoadError({
   message,
   className,
+  onRetry,
 }: {
   message: string;
   className?: string;
+  onRetry?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -22,7 +24,13 @@ export function InvoiceLoadError({
   const unavailable = status ? UNAVAILABLE_STATUSES.has(status) : false;
 
   function retry() {
-    startTransition(() => router.refresh());
+    startTransition(() => {
+      if (onRetry) {
+        onRetry();
+        return;
+      }
+      router.refresh();
+    });
   }
 
   return (

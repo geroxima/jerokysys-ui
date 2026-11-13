@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,10 +13,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-import {
-  changeInvoiceStatusAction,
-  deleteInvoiceAction,
-} from "@/app/(app)/invoices/actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +33,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { InvoiceStatus } from "@/lib/invoices/types";
+import {
+  useChangeInvoiceStatus,
+  useDeleteInvoice,
+} from "@/lib/query/invoices";
 import { cn } from "@/lib/utils";
 
 type Action = "PAID" | "CANCELLED" | "DELETE";
@@ -80,9 +80,11 @@ export function InvoiceActions({
   variant?: "menu" | "buttons";
 }) {
   const router = useRouter();
+  const changeStatus = useChangeInvoiceStatus();
+  const removeInvoice = useDeleteInvoice();
+  const pending = changeStatus.isPending || removeInvoice.isPending;
   const [action, setAction] = useState<Action | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
 
   const canEdit = status === "PENDING";
   const canChangeStatus = status === "PENDING";
@@ -96,7 +98,7 @@ export function InvoiceActions({
     setError(null);
   }
 
-  function run() {
+  async function run() {
     if (!action) {
       return;
     }
@@ -104,23 +106,23 @@ export function InvoiceActions({
     const current = action;
     setError(null);
 
-    startTransition(async () => {
-      const result =
-        current === "DELETE"
-          ? await deleteInvoiceAction(invoiceId)
-          : await changeInvoiceStatusAction(invoiceId, current);
-
-      if (!result.ok) {
-        setError(result.message);
+    try {
+      if (current === "DELETE") {
+        await removeInvoice.mutateAsync(invoiceId);
+        setAction(null);
+        router.push("/invoices");
         return;
       }
 
+      await changeStatus.mutateAsync({ id: invoiceId, status: current });
       setAction(null);
-
-      if (current !== "DELETE") {
-        router.refresh();
-      }
-    });
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo completar la acción.",
+      );
+    }
   }
 
   return (
