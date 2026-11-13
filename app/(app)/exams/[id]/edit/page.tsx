@@ -6,6 +6,7 @@ import { RotateCw } from "lucide-react";
 
 import { ExamForm } from "@/components/academic/exam-form";
 import { NotFoundPage } from "@/components/not-found-page";
+import { RequirePermission } from "@/components/require-permission";
 import { TableSkeleton } from "@/components/suspense-table";
 import { Button } from "@/components/ui/button";
 import { isNotFound } from "@/lib/api-client";
@@ -14,15 +15,17 @@ import { useExamResultsByExam } from "@/lib/query/exam-results";
 
 export default function EditExamPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-slate-50 p-8">
-          <TableSkeleton columns={3} />
-        </div>
-      }
-    >
-      <EditExamContent />
-    </Suspense>
+    <RequirePermission permission="academic:write">
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-50 p-8">
+            <TableSkeleton columns={3} />
+          </div>
+        }
+      >
+        <EditExamContent />
+      </Suspense>
+    </RequirePermission>
   );
 }
 

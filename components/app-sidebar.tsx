@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { sidebarSections, type SidebarItem } from "@/lib/navigation";
+import { usePermissions } from "@/components/permission-provider";
+import { visibleSections, type SidebarItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 function isActive(pathname: string | null, item: SidebarItem) {
@@ -54,12 +55,15 @@ function ActiveSidebarNav() {
 }
 
 function SidebarNav({ pathname = null }: { pathname?: string | null }) {
+  const { permissions } = usePermissions();
+  const sections = visibleSections(permissions);
+
   return (
     <nav
       aria-label="Navegación principal"
       className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 pb-6"
     >
-      {sidebarSections.map((section, index) => (
+      {sections.map((section, index) => (
         <div key={section.label ?? `section-${index}`}>
           {section.label ? (
             <h2 className="mb-2 px-2.5 text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">

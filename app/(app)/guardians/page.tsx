@@ -1,6 +1,11 @@
 import { PagePlaceholder } from "@/components/page-placeholder";
+import { requirePermission } from "@/lib/auth";
 
-export default function GuardiansPage() {
+export const instant = false;
+
+export default async function GuardiansPage() {
+  await requirePermission("personas:read");
+
   return (
     <PagePlaceholder
       title="Responsables"

@@ -2,7 +2,6 @@ import {
   FileText,
   GraduationCap,
   LayoutGrid,
-  Megaphone,
   Settings,
   Users,
   UsersRound,
@@ -11,11 +10,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { Permission } from "@/lib/permissions";
+
 export type SidebarItem = {
   label: string;
   href: string;
   icon: LucideIcon;
   exact?: boolean;
+  /** Permiso requerido para ver el item; si no se define, es visible para todo usuario autenticado. */
+  permission?: Permission;
 };
 
 export type SidebarSection = {
@@ -41,6 +44,7 @@ export const sidebarSections: SidebarSection[] = [
         label: "Facturas",
         href: "/invoices",
         icon: FileText,
+        permission: "invoices:read",
       },
     ],
   },
@@ -51,21 +55,25 @@ export const sidebarSections: SidebarSection[] = [
         label: "Clases",
         href: "/classes",
         icon: BookOpen,
+        permission: "academic:read",
       },
       {
         label: "Disciplinas",
         href: "/disciplines",
         icon: GraduationCap,
+        permission: "academic:read",
       },
       {
         label: "Exámenes",
         href: "/exams",
         icon: ClipboardCheck,
+        permission: "academic:read",
       },
       {
         label: "Inscripciones",
         href: "/enrollments",
         icon: Users,
+        permission: "academic:read",
       },
     ],
   },
@@ -76,16 +84,19 @@ export const sidebarSections: SidebarSection[] = [
         label: "Alumnos",
         href: "/students",
         icon: Users,
+        permission: "personas:read",
       },
       {
         label: "Responsables",
         href: "/guardians",
         icon: UsersRound,
+        permission: "personas:read",
       },
       {
         label: "Profesores",
-        href: "/professors",
+        href: "/instructors",
         icon: GraduationCap,
+        permission: "personas:read",
       },
     ],
   },
@@ -97,7 +108,25 @@ export const sidebarSections: SidebarSection[] = [
         label: "Ajustes",
         href: "/settings",
         icon: Settings,
+        permission: "users:manage",
       },
     ],
   },
 ];
+
+/**
+ * Devuelve las secciones visibles para un conjunto de permisos, ocultando los
+ * items sin permiso y las secciones que quedan vacias.
+ */
+export function visibleSections(
+  permissions: ReadonlySet<Permission>,
+): SidebarSection[] {
+  return sidebarSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.permission || permissions.has(item.permission),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
+}

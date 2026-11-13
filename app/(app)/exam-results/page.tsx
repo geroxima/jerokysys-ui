@@ -5,12 +5,15 @@ import Link from "next/link";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { ExamResultsList } from "@/components/academic/exam-results-list";
+import { usePermissions } from "@/components/permission-provider";
+import { RequirePermission } from "@/components/require-permission";
 import { SearchBar } from "@/components/search-bar";
 import { Button } from "@/components/ui/button";
 import { usePagedFilter } from "@/lib/use-paged-filter";
 
 function ExamResultsContent() {
   const filter = usePagedFilter("id", "DESC");
+  const { can } = usePermissions();
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -32,12 +35,14 @@ function ExamResultsContent() {
               Actualizar
             </Link>
           </Button>
-          <Button size="sm">
-            <Link href="/exam-results/new" className="flex items-center gap-2">
-              <Plus className="size-4" />
-              Nuevo resultado
-            </Link>
-          </Button>
+          {can("academic:write") ? (
+            <Button size="sm">
+              <Link href="/exam-results/new" className="flex items-center gap-2">
+                <Plus className="size-4" />
+                Nuevo resultado
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -48,8 +53,10 @@ function ExamResultsContent() {
 
 export default function ExamResultsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
-      <ExamResultsContent />
-    </Suspense>
+    <RequirePermission permission="academic:read">
+      <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
+        <ExamResultsContent />
+      </Suspense>
+    </RequirePermission>
   );
 }

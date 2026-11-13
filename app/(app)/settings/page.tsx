@@ -1,6 +1,11 @@
 import { PagePlaceholder } from "@/components/page-placeholder";
+import { requirePermission } from "@/lib/auth";
 
-export default function SettingsPage() {
+export const instant = false;
+
+export default async function SettingsPage() {
+  await requirePermission("users:manage");
+
   return (
     <PagePlaceholder
       title="Ajustes"

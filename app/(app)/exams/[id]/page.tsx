@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RotateCw } from "lucide-react";
 
+import { usePermissions } from "@/components/permission-provider";
 import { NotFoundPage } from "@/components/not-found-page";
+import { RequirePermission } from "@/components/require-permission";
 import { TableSkeleton } from "@/components/suspense-table";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,15 +27,17 @@ import { cn } from "@/lib/utils";
 
 export default function ExamPreviewPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-slate-50 p-8">
-          <TableSkeleton columns={3} />
-        </div>
-      }
-    >
-      <ExamPreviewContent />
-    </Suspense>
+    <RequirePermission permission="academic:read">
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-50 p-8">
+            <TableSkeleton columns={3} />
+          </div>
+        }
+      >
+        <ExamPreviewContent />
+      </Suspense>
+    </RequirePermission>
   );
 }
 
@@ -41,6 +45,7 @@ function ExamPreviewContent() {
   const params = useParams<{ id: string }>();
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
   const examId = Number(rawId);
+  const { can } = usePermissions();
 
   const examQuery = useExam(examId);
   const resultsQuery = useExamResultsByExam(examId);
@@ -108,12 +113,14 @@ function ExamPreviewContent() {
           >
             Volver
           </Link>
-          <Link
-            href={`/exams/${examId}/edit`}
-            className={cn(buttonVariants({ size: "default" }))}
-          >
-            Editar / agregar notas
-          </Link>
+          {can("academic:write") ? (
+            <Link
+              href={`/exams/${examId}/edit`}
+              className={cn(buttonVariants({ size: "default" }))}
+            >
+              Editar / agregar notas
+            </Link>
+          ) : null}
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 
-import { AccessDenied } from "@/components/access-denied";
+import { ForbiddenPage } from "@/components/forbidden-page";
 import { InvoiceEmptyState } from "@/components/invoices/invoice-empty-state";
 import { InvoiceFilters } from "@/components/invoices/invoice-filters";
 import { InvoiceLoadError } from "@/components/invoices/invoice-load-error";
@@ -13,9 +13,9 @@ import { InvoicePagination } from "@/components/invoices/invoice-pagination";
 import { InvoiceSummaryCards } from "@/components/invoices/invoice-summary-cards";
 import { InvoicesSkeleton } from "@/components/invoices/invoices-skeleton";
 import { InvoicesTable } from "@/components/invoices/invoices-table";
+import { usePermissions } from "@/components/permission-provider";
 import { buttonVariants } from "@/components/ui/button";
 import { pluralize } from "@/lib/invoices/format";
-import { canAccessInvoices } from "@/lib/invoices/permissions";
 import {
   describeFilter,
   invoiceHref,
@@ -23,22 +23,17 @@ import {
   parseInvoiceQuery,
 } from "@/lib/invoices/query";
 import { useInvoiceStats, useInvoices } from "@/lib/query/invoices";
-import { useSession } from "@/lib/query/session";
 import { cn } from "@/lib/utils";
 
 function InvoicesContent() {
   const searchParams = useSearchParams();
-  const sessionQuery = useSession();
+  const { can } = usePermissions();
   const query = parseInvoiceQuery(Object.fromEntries(searchParams.entries()));
   const listQuery = useInvoices(query);
   const statsQuery = useInvoiceStats();
 
-  if (sessionQuery.isLoading) {
-    return <InvoicesSkeleton />;
-  }
-
-  if (!canAccessInvoices(sessionQuery.data?.role)) {
-    return <AccessDenied />;
+  if (!can("invoices:read")) {
+    return <ForbiddenPage />;
   }
 
   const header = (
@@ -50,13 +45,15 @@ function InvoicesContent() {
         </p>
       </div>
 
-      <Link
-        href="/invoices/new"
-        className={cn(buttonVariants({ size: "lg" }), "h-9")}
-      >
-        <Plus aria-hidden="true" />
-        Nueva factura
-      </Link>
+      {can("invoices:write") ? (
+        <Link
+          href="/invoices/new"
+          className={cn(buttonVariants({ size: "lg" }), "h-9")}
+        >
+          <Plus aria-hidden="true" />
+          Nueva factura
+        </Link>
+      ) : null}
     </header>
   );
 
@@ -161,7 +158,7 @@ function InvoicesContent() {
                   >
                     Ver todas
                   </Link>
-                ) : (
+                ) : can("invoices:write") ? (
                   <Link
                     href="/invoices/new"
                     className={cn(buttonVariants({ size: "lg" }), "h-9")}
@@ -169,7 +166,7 @@ function InvoicesContent() {
                     <Plus aria-hidden="true" />
                     Nueva factura
                   </Link>
-                )
+                ) : undefined
               }
             />
           </div>

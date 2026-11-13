@@ -2,6 +2,7 @@
 
 import { QueryList } from "@/components/query-list";
 import type { Column } from "@/components/data-table";
+import { usePermissions } from "@/components/permission-provider";
 import { useExams } from "@/lib/query/exams";
 import type { ExamDTO, PagedFilter } from "@/lib/academic/types";
 
@@ -12,6 +13,7 @@ const columns: Column<ExamDTO>[] = [
 ];
 
 export function ExamsList({ filter }: { filter: PagedFilter }) {
+  const { can } = usePermissions();
   const { data, isLoading, isError, error, isFetching, refetch } =
     useExams(filter);
 
@@ -28,7 +30,7 @@ export function ExamsList({ filter }: { filter: PagedFilter }) {
       totalPages={data?.totalPages ?? 0}
       baseUrl="/exams"
       rowDoubleClickBaseUrl="/exams"
-      rowEditBaseUrl="/exams"
+      rowEditBaseUrl={can("academic:write") ? "/exams" : undefined}
     />
   );
 }

@@ -5,12 +5,15 @@ import Link from "next/link";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { EnrollmentsList } from "@/components/academic/enrollments-list";
+import { usePermissions } from "@/components/permission-provider";
+import { RequirePermission } from "@/components/require-permission";
 import { SearchBar } from "@/components/search-bar";
 import { Button } from "@/components/ui/button";
 import { usePagedFilter } from "@/lib/use-paged-filter";
 
 function EnrollmentsContent() {
   const filter = usePagedFilter("enrollmentDate", "DESC");
+  const { can } = usePermissions();
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -30,12 +33,14 @@ function EnrollmentsContent() {
               Actualizar
             </Link>
           </Button>
-          <Button size="sm">
-            <Link href="/enrollments/new" className="flex items-center gap-2">
-              <Plus className="size-4" />
-              Nueva inscripción
-            </Link>
-          </Button>
+          {can("academic:write") ? (
+            <Button size="sm">
+              <Link href="/enrollments/new" className="flex items-center gap-2">
+                <Plus className="size-4" />
+                Nueva inscripción
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -46,8 +51,10 @@ function EnrollmentsContent() {
 
 export default function EnrollmentsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
-      <EnrollmentsContent />
-    </Suspense>
+    <RequirePermission permission="academic:read">
+      <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
+        <EnrollmentsContent />
+      </Suspense>
+    </RequirePermission>
   );
 }

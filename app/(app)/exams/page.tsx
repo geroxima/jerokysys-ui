@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { ExamsList } from "@/components/academic/exams-list";
+import { usePermissions } from "@/components/permission-provider";
+import { RequirePermission } from "@/components/require-permission";
 import { SearchBar } from "@/components/search-bar";
 import { Button } from "@/components/ui/button";
 import { usePagedFilter } from "@/lib/use-paged-filter";
@@ -13,6 +15,7 @@ import { usePagedFilter } from "@/lib/use-paged-filter";
 function ExamsContent() {
   const params = useSearchParams();
   const filter = usePagedFilter("examDate", "DESC");
+  const { can } = usePermissions();
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -36,12 +39,14 @@ function ExamsContent() {
               Actualizar
             </Link>
           </Button>
-          <Button size="sm">
-            <Link href="/exams/new" className="flex items-center gap-2">
-              <Plus className="size-4" />
-              Nuevo examen
-            </Link>
-          </Button>
+          {can("academic:write") ? (
+            <Button size="sm">
+              <Link href="/exams/new" className="flex items-center gap-2">
+                <Plus className="size-4" />
+                Nuevo examen
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -52,8 +57,10 @@ function ExamsContent() {
 
 export default function ExamsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
-      <ExamsContent />
-    </Suspense>
+    <RequirePermission permission="academic:read">
+      <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
+        <ExamsContent />
+      </Suspense>
+    </RequirePermission>
   );
 }

@@ -14,12 +14,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { requireSession } from "@/lib/auth";
+import type { Permission } from "@/lib/permissions";
+
+export const instant = false;
 
 type DashboardItem = {
   label: string;
   description: string;
   href: string;
   icon: LucideIcon;
+  permission: Permission;
 };
 
 const items: DashboardItem[] = [
@@ -28,40 +33,51 @@ const items: DashboardItem[] = [
     description: "Modalidades de danza por clase",
     href: "/classes",
     icon: BookOpen,
+    permission: "academic:read",
   },
   {
     label: "Disciplinas",
     description: "Gestión de modalidades de danza",
     href: "/disciplines",
     icon: GraduationCap,
+    permission: "academic:read",
   },
   {
     label: "Exámenes",
     description: "Evaluaciones y exámenes",
     href: "/exams",
     icon: ClipboardCheck,
+    permission: "academic:read",
   },
   {
     label: "Resultados",
     description: "Calificaciones de exámenes",
     href: "/exam-results",
     icon: ClipboardCheck,
+    permission: "academic:read",
   },
   {
     label: "Inscripciones",
     description: "Alumnos inscritos en clases",
     href: "/enrollments",
     icon: Users,
+    permission: "academic:read",
   },
   {
     label: "Facturas",
     description: "Gestión de facturación",
     href: "/invoices",
     icon: FileText,
+    permission: "invoices:read",
   },
 ];
 
-export default function AcademicPage() {
+export default async function AcademicPage() {
+  const session = await requireSession();
+  const visibleItems = items.filter((item) =>
+    session.permissions.has(item.permission),
+  );
+
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
       <div className="mb-6">
@@ -72,7 +88,7 @@ export default function AcademicPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href}>

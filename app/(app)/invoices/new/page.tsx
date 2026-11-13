@@ -3,34 +3,25 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import { AccessDenied } from "@/components/access-denied";
+import { ForbiddenPage } from "@/components/forbidden-page";
 import { InvoiceForm } from "@/components/invoices/invoice-form";
 import { InvoiceFormSkeleton } from "@/components/invoices/invoice-skeletons";
+import { usePermissions } from "@/components/permission-provider";
 import { todayIsoDate } from "@/lib/invoices/format";
 import { getIssuerConfig } from "@/lib/invoices/issuer";
-import { canAccessInvoices } from "@/lib/invoices/permissions";
 import { emptyInvoiceFormValues } from "@/lib/invoices/validation";
 import { useNextInvoiceNumbers } from "@/lib/query/invoices";
-import { useSession } from "@/lib/query/session";
 
 export default function NewInvoicePage() {
-  const sessionQuery = useSession();
+  const { can } = usePermissions();
   const { issuer, timbrados } = getIssuerConfig();
   const fallback = timbrados[0];
   const previews = useNextInvoiceNumbers(timbrados);
 
-  if (sessionQuery.isLoading) {
+  if (!can("invoices:write")) {
     return (
       <div className="mx-auto w-full max-w-5xl px-8 py-10">
-        <InvoiceFormSkeleton />
-      </div>
-    );
-  }
-
-  if (!canAccessInvoices(sessionQuery.data?.role)) {
-    return (
-      <div className="mx-auto w-full max-w-5xl px-8 py-10">
-        <AccessDenied />
+        <ForbiddenPage />
       </div>
     );
   }

@@ -5,20 +5,19 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Info, RotateCw } from "lucide-react";
 
-import { AccessDenied } from "@/components/access-denied";
+import { ForbiddenPage } from "@/components/forbidden-page";
 import { InvoiceForm } from "@/components/invoices/invoice-form";
 import { InvoiceFormSkeleton } from "@/components/invoices/invoice-skeletons";
 import { NotFoundPage } from "@/components/not-found-page";
+import { usePermissions } from "@/components/permission-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { isNotFound } from "@/lib/api-client";
 import { invoiceToFormValues } from "@/lib/invoices/form-values";
 import { getIssuerConfig } from "@/lib/invoices/issuer";
 import { INVOICE_STATUS_LABELS } from "@/lib/invoices/labels";
-import { canAccessInvoices } from "@/lib/invoices/permissions";
 import type { InvoiceTimbrado } from "@/lib/invoices/types";
 import { useInvoice } from "@/lib/query/invoices";
-import { useSession } from "@/lib/query/session";
 import { cn } from "@/lib/utils";
 
 export default function EditInvoicePage() {
@@ -41,21 +40,13 @@ function EditInvoiceContent() {
   const id = Number(rawId);
   const validId = Number.isInteger(id) && id > 0;
 
-  const sessionQuery = useSession();
+  const { can } = usePermissions();
   const invoiceQuery = useInvoice(validId ? id : null);
 
-  if (sessionQuery.isLoading) {
+  if (!can("invoices:write")) {
     return (
       <div className="mx-auto w-full max-w-5xl px-8 py-10">
-        <InvoiceFormSkeleton />
-      </div>
-    );
-  }
-
-  if (!canAccessInvoices(sessionQuery.data?.role)) {
-    return (
-      <div className="mx-auto w-full max-w-5xl px-8 py-10">
-        <AccessDenied />
+        <ForbiddenPage />
       </div>
     );
   }

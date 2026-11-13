@@ -5,12 +5,15 @@ import Link from "next/link";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { ClassesList } from "@/components/academic/classes-list";
+import { usePermissions } from "@/components/permission-provider";
+import { RequirePermission } from "@/components/require-permission";
 import { SearchBar } from "@/components/search-bar";
 import { Button } from "@/components/ui/button";
 import { usePagedFilter } from "@/lib/use-paged-filter";
 
 function ClassesContent() {
   const filter = usePagedFilter("level", "ASC");
+  const { can } = usePermissions();
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -30,12 +33,14 @@ function ClassesContent() {
               Actualizar
             </Link>
           </Button>
-          <Button size="sm">
-            <Link href="/classes/new" className="flex items-center gap-2">
-              <Plus className="size-4" />
-              Nueva clase
-            </Link>
-          </Button>
+          {can("academic:write") ? (
+            <Button size="sm">
+              <Link href="/classes/new" className="flex items-center gap-2">
+                <Plus className="size-4" />
+                Nueva clase
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -46,8 +51,10 @@ function ClassesContent() {
 
 export default function ClassesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
-      <ClassesContent />
-    </Suspense>
+    <RequirePermission permission="academic:read">
+      <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
+        <ClassesContent />
+      </Suspense>
+    </RequirePermission>
   );
 }

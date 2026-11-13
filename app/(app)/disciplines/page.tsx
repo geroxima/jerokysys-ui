@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { DisciplinesList } from "@/components/academic/disciplines-list";
+import { usePermissions } from "@/components/permission-provider";
+import { RequirePermission } from "@/components/require-permission";
 import { SearchBar } from "@/components/search-bar";
 import { Button } from "@/components/ui/button";
 import { usePagedFilter } from "@/lib/use-paged-filter";
@@ -13,6 +15,7 @@ import { usePagedFilter } from "@/lib/use-paged-filter";
 function DisciplinesContent() {
   const params = useSearchParams();
   const filter = usePagedFilter("name", "ASC");
+  const { can } = usePermissions();
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -36,12 +39,14 @@ function DisciplinesContent() {
               Actualizar
             </Link>
           </Button>
-          <Button size="sm">
-            <Link href="/disciplines/new" className="flex items-center gap-2">
-              <Plus className="size-4" />
-              Nueva disciplina
-            </Link>
-          </Button>
+          {can("academic:write") ? (
+            <Button size="sm">
+              <Link href="/disciplines/new" className="flex items-center gap-2">
+                <Plus className="size-4" />
+                Nueva disciplina
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -52,8 +57,10 @@ function DisciplinesContent() {
 
 export default function DisciplinesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
-      <DisciplinesContent />
-    </Suspense>
+    <RequirePermission permission="academic:read">
+      <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
+        <DisciplinesContent />
+      </Suspense>
+    </RequirePermission>
   );
 }
