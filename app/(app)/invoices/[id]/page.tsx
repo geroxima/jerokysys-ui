@@ -35,10 +35,8 @@ import {
   formatDate,
   formatLongDate,
   formatMonth,
-  lineTotal,
-  lineVat,
-  parseConceptToken,
-  stripConceptToken,
+  lineSubtotal,
+  vatTypeLabel,
 } from "@/lib/invoices/format";
 import { SALE_CONDITION_LABELS } from "@/lib/invoices/labels";
 import { canAccessInvoices } from "@/lib/invoices/permissions";
@@ -168,7 +166,12 @@ function InvoiceDetailContent() {
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              {invoice.businessName} · RUC {invoice.taxId}
+              {invoice.customerName} · RUC {invoice.customerRuc}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Alumno #{invoice.studentId ?? "—"} · Timbrado{" "}
+              {invoice.stampNumber} · Establecimiento{" "}
+              {invoice.establishmentCode}-{invoice.expeditionPoint}
             </p>
           </div>
 
@@ -186,7 +189,7 @@ function InvoiceDetailContent() {
               <CardHeader>
                 <CardTitle>Datos de la factura</CardTitle>
                 <CardDescription>
-                  Información fiscal de la cabecera y del cliente.
+                  Información fiscal de la cabecera, del cliente y del emisor.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -197,8 +200,19 @@ function InvoiceDetailContent() {
                   <DataItem label="Condición de venta">
                     {SALE_CONDITION_LABELS[invoice.saleCondition]}
                   </DataItem>
-                  <DataItem label="Timbrado">{invoice.timbrado}</DataItem>
-                  <DataItem label="Alumno">#{invoice.studentId}</DataItem>
+                  <DataItem label="Vencimiento">
+                    {invoice.dueDate ? formatDate(invoice.dueDate) : "—"}
+                  </DataItem>
+                  <DataItem label="Alumno">
+                    {invoice.studentId ? `#${invoice.studentId}` : "—"}
+                  </DataItem>
+                  <DataItem label="Timbrado">
+                    {invoice.stampNumber}
+                  </DataItem>
+                  <DataItem label="Vigencia del timbrado">
+                    {formatDate(invoice.stampValidFrom)} al{" "}
+                    {formatDate(invoice.stampValidUntil)}
+                  </DataItem>
                   <DataItem label="Estado del cobro">
                     <InvoiceStatusBadge status={invoice.paymentStatus} />
                   </DataItem>
@@ -212,9 +226,33 @@ function InvoiceDetailContent() {
 
             <Card>
               <CardHeader>
+                <CardTitle>Emisor</CardTitle>
+                <CardDescription>
+                  Datos guardados al momento de emitir la factura.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid gap-4 sm:grid-cols-2">
+                  <DataItem label="Razón social">{invoice.issuerName}</DataItem>
+                  <DataItem label="RUC">{invoice.issuerRuc}</DataItem>
+                  <DataItem label="Actividad">{invoice.issuerActivity}</DataItem>
+                  <DataItem label="Dirección">{invoice.issuerAddress}</DataItem>
+                  <DataItem label="Teléfono">
+                    {invoice.issuerPhone ?? "—"}
+                  </DataItem>
+                  <DataItem label="Email">
+                    {invoice.issuerEmail ?? "—"}
+                  </DataItem>
+                </dl>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>Líneas de detalle</CardTitle>
                 <CardDescription>
-                  El IVA de cada línea se calcula como monto × tasa / 100.
+                  Los valores de venta incluyen IVA. El IVA se liquida sobre
+                  cada tratamiento.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -236,13 +274,16 @@ function InvoiceDetailContent() {
                           Mes
                         </TableHead>
                         <TableHead className="px-2 text-right text-xs tracking-wide text-muted-foreground uppercase">
-                          Monto
+                          Cant.
+                        </TableHead>
+                        <TableHead className="px-2 text-right text-xs tracking-wide text-muted-foreground uppercase">
+                          Precio unit.
                         </TableHead>
                         <TableHead className="px-2 text-right text-xs tracking-wide text-muted-foreground uppercase">
                           IVA
                         </TableHead>
                         <TableHead className="px-2 text-right text-xs tracking-wide text-muted-foreground uppercase">
-                          Total
+                          Valor de venta
                         </TableHead>
                       </TableRow>
                     </TableHeader>
@@ -269,7 +310,17 @@ function InvoiceDetailContent() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <InvoiceTotals lines={invoice.details} />
+                <InvoiceTotals
+                  totals={{
+                    exemptAmount: invoice.exemptAmount,
+                    sales5Amount: invoice.sales5Amount,
+                    sales10Amount: invoice.sales10Amount,
+                    iva5Amount: invoice.iva5Amount,
+                    iva10Amount: invoice.iva10Amount,
+                    totalAmount: invoice.totalAmount,
+                    totalIva: invoice.totalIva,
+                  }}
+                />
               </CardContent>
             </Card>
 
@@ -287,6 +338,10 @@ function InvoiceDetailContent() {
                   <span className="tabular-nums">
                     {formatDate(invoice.issueDate)}
                   </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Timbrado</span>
+                  <span className="tabular-nums">{invoice.stampNumber}</span>
                 </div>
                 <p className="pt-1 text-xs text-muted-foreground">
                   {invoice.paymentStatus === "PENDING"
@@ -320,17 +375,21 @@ function DataItem({
 }
 
 function InvoiceLineRow({ line }: { line: InvoiceLine }) {
-  const token = parseConceptToken(line.description);
-  const description = stripConceptToken(line.description) || line.description;
-
   return (
     <TableRow>
       <TableCell className="max-w-[360px] px-2 py-2.5 whitespace-normal">
         <div className="flex flex-col items-start gap-1">
-          <span>{description}</span>
-          {token ? (
+          <span>{line.description}</span>
+          {line.conceptType ? (
             <Badge variant="secondary" className="h-5 font-normal">
-              {token.label} #{token.id}
+              {line.conceptType === "CUOTA"
+                ? "Cuota"
+                : line.conceptType === "MATRICULA"
+                  ? "Matrícula"
+                  : line.conceptType === "EXAMEN"
+                    ? "Examen"
+                    : "Otro"}
+              {line.conceptId ? ` #${line.conceptId}` : ""}
             </Badge>
           ) : null}
         </div>
@@ -339,16 +398,16 @@ function InvoiceLineRow({ line }: { line: InvoiceLine }) {
         {formatMonth(line.correspondingMonth)}
       </TableCell>
       <TableCell className="px-2 py-2.5 text-right tabular-nums">
-        {formatCurrency(line.amount)}
+        {line.quantity}
       </TableCell>
       <TableCell className="px-2 py-2.5 text-right tabular-nums">
-        <span className="block">{formatCurrency(lineVat(line))}</span>
-        <span className="text-xs text-muted-foreground">
-          {line.vatRate === 0 ? "Exento" : `${line.vatRate}%`}
-        </span>
+        {formatCurrency(line.unitPrice)}
+      </TableCell>
+      <TableCell className="px-2 py-2.5 text-right text-muted-foreground">
+        {vatTypeLabel(line.vatType)}
       </TableCell>
       <TableCell className="px-2 py-2.5 text-right font-medium tabular-nums">
-        {formatCurrency(lineTotal(line))}
+        {formatCurrency(line.subtotal || lineSubtotal(line))}
       </TableCell>
     </TableRow>
   );

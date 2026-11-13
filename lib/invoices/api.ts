@@ -1,11 +1,11 @@
 import { ApiError, apiRequest as request } from "@/lib/api-client";
-import { isDuplicateInvoiceNumber, translateInvoiceError } from "./errors";
-import { invoiceTotal, roundCurrency } from "./format";
+import { translateInvoiceError } from "./errors";
+import { roundCurrency } from "./format";
 import { buildInvoicePayload } from "./payload";
-import { nextInvoiceNumber } from "./numbering";
 import { INVOICE_PAGE_SIZE } from "./query";
 import type {
   Invoice,
+  InvoiceConceptType,
   InvoiceLine,
   InvoiceListResult,
   InvoicePage,
@@ -13,32 +13,58 @@ import type {
   InvoiceQuery,
   InvoiceStats,
   InvoiceStatus,
+  IssuerInfo,
   ParsedInvoice,
   SaleCondition,
   StatusSummary,
+  TaxStamp,
+  VatType,
 } from "./types";
 
 type RawInvoiceDetail = {
   id?: number | null;
   invoiceId?: number | null;
   description?: string | null;
-  amount?: string | number | null;
-  vatRate?: number | null;
+  quantity?: string | number | null;
+  unitPrice?: string | number | null;
+  subtotal?: string | number | null;
+  vatType?: string | null;
+  conceptType?: string | null;
+  conceptId?: number | null;
   correspondingMonth?: string | null;
 };
 
 type RawInvoice = {
   id?: number | null;
   studentId?: number | null;
-  timbrado?: string | null;
+  taxStampId?: number | null;
+  establishmentCode?: string | null;
+  expeditionPoint?: string | null;
+  sequenceNumber?: number | null;
   invoiceNumber?: string | null;
-  taxId?: string | null;
-  businessName?: string | null;
   issueDate?: string | null;
+  dueDate?: string | null;
   saleCondition?: string | null;
+  paymentStatus?: string | null;
+  customerName?: string | null;
+  customerRuc?: string | null;
+  customerAddress?: string | null;
+  issuerName?: string | null;
+  issuerRuc?: string | null;
+  issuerActivity?: string | null;
+  issuerPhone?: string | null;
+  issuerAddress?: string | null;
+  issuerEmail?: string | null;
+  stampNumber?: string | null;
+  stampValidFrom?: string | null;
+  stampValidUntil?: string | null;
+  exemptAmount?: string | number | null;
+  sales5Amount?: string | number | null;
+  sales10Amount?: string | number | null;
+  iva5Amount?: string | number | null;
+  iva10Amount?: string | number | null;
   totalAmount?: string | number | null;
   totalIva?: string | number | null;
-  paymentStatus?: string | null;
   details?: RawInvoiceDetail[] | null;
 };
 
@@ -61,6 +87,14 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
+function toNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = toNumber(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function normalizeStatus(value: unknown): InvoiceStatus {
   return value === "PAID" || value === "CANCELLED" ? value : "PENDING";
 }
@@ -69,13 +103,37 @@ function normalizeSaleCondition(value: unknown): SaleCondition {
   return value === "CREDITO" ? "CREDITO" : "CONTADO";
 }
 
+function normalizeVatType(value: unknown): VatType {
+  if (value === "GRAVADA_5" || value === "EXENTA" || value === "GRAVADA_10") {
+    return value;
+  }
+  return "GRAVADA_10";
+}
+
+function normalizeConceptType(value: unknown): InvoiceConceptType | null {
+  if (
+    value === "MATRICULA" ||
+    value === "CUOTA" ||
+    value === "EXAMEN" ||
+    value === "OTRO"
+  ) {
+    return value;
+  }
+  return null;
+}
+
 function normalizeLine(raw: RawInvoiceDetail): InvoiceLine {
+  const subtotal = toNumber(raw.subtotal);
   return {
     id: raw.id ?? null,
     invoiceId: raw.invoiceId ?? null,
     description: raw.description ?? "",
-    amount: toNumber(raw.amount),
-    vatRate: toNumber(raw.vatRate),
+    quantity: toNumber(raw.quantity),
+    unitPrice: toNumber(raw.unitPrice),
+    subtotal,
+    vatType: normalizeVatType(raw.vatType),
+    conceptType: normalizeConceptType(raw.conceptType),
+    conceptId: toNumberOrNull(raw.conceptId),
     correspondingMonth: raw.correspondingMonth ?? null,
   };
 }
@@ -83,16 +141,35 @@ function normalizeLine(raw: RawInvoiceDetail): InvoiceLine {
 function normalizeInvoice(raw: RawInvoice): Invoice {
   return {
     id: toNumber(raw.id),
-    studentId: toNumber(raw.studentId),
-    timbrado: raw.timbrado ?? "",
+    studentId: toNumberOrNull(raw.studentId),
+    taxStampId: toNumber(raw.taxStampId),
+    establishmentCode: raw.establishmentCode ?? "",
+    expeditionPoint: raw.expeditionPoint ?? "",
+    sequenceNumber: toNumber(raw.sequenceNumber),
     invoiceNumber: raw.invoiceNumber ?? "",
-    taxId: raw.taxId ?? "",
-    businessName: raw.businessName ?? "",
     issueDate: raw.issueDate ?? "",
+    dueDate: raw.dueDate ?? null,
     saleCondition: normalizeSaleCondition(raw.saleCondition),
+    paymentStatus: normalizeStatus(raw.paymentStatus),
+    customerName: raw.customerName ?? "",
+    customerRuc: raw.customerRuc ?? "",
+    customerAddress: raw.customerAddress ?? null,
+    issuerName: raw.issuerName ?? "",
+    issuerRuc: raw.issuerRuc ?? "",
+    issuerActivity: raw.issuerActivity ?? "",
+    issuerPhone: raw.issuerPhone ?? null,
+    issuerAddress: raw.issuerAddress ?? "",
+    issuerEmail: raw.issuerEmail ?? null,
+    stampNumber: raw.stampNumber ?? "",
+    stampValidFrom: raw.stampValidFrom ?? "",
+    stampValidUntil: raw.stampValidUntil ?? "",
+    exemptAmount: toNumber(raw.exemptAmount),
+    sales5Amount: toNumber(raw.sales5Amount),
+    sales10Amount: toNumber(raw.sales10Amount),
+    iva5Amount: toNumber(raw.iva5Amount),
+    iva10Amount: toNumber(raw.iva10Amount),
     totalAmount: toNumber(raw.totalAmount),
     totalIva: toNumber(raw.totalIva),
-    paymentStatus: normalizeStatus(raw.paymentStatus),
     details: (raw.details ?? []).map(normalizeLine),
   };
 }
@@ -115,15 +192,15 @@ function endpointForFilter(query: InvoiceQuery): string {
     case "status":
       return `/invoices/by-status?status=${filter.status}`;
     case "query":
-      return `/invoices/search-by-business-name?businessName=${encodeURIComponent(filter.value)}`;
+      return `/invoices/search-by-customer-name?customerName=${encodeURIComponent(filter.value)}`;
     case "student":
       return `/invoices/by-student/${encodeURIComponent(filter.value)}`;
     case "invoiceNumber":
       return `/invoices/by-number?invoiceNumber=${encodeURIComponent(filter.value)}`;
-    case "timbrado":
-      return `/invoices/by-timbrado?timbrado=${encodeURIComponent(filter.value)}`;
-    case "taxId":
-      return `/invoices/by-tax-id?taxId=${encodeURIComponent(filter.value)}`;
+    case "stampNumber":
+      return `/invoices/by-stamp-number?stampNumber=${encodeURIComponent(filter.value)}`;
+    case "customerRuc":
+      return `/invoices/by-customer-ruc?ruc=${encodeURIComponent(filter.value)}`;
     case "date":
       return `/invoices/by-date?date=${encodeURIComponent(filter.value)}`;
     case "dateRange":
@@ -266,27 +343,20 @@ export async function getInvoice(id: number): Promise<Invoice> {
   return normalizeInvoice(raw);
 }
 
-/**
- * El microservicio no expone un correlativo. Lo calculamos a partir de las
- * facturas del mismo timbrado, filtrando por serie. Es best-effort: el backend
- * sigue siendo la autoridad y puede rechazar el número con 409.
- */
-export async function getNextInvoiceNumber(
-  timbrado: string,
-  serie: string,
-): Promise<string> {
-  const raw = await apiRequest<RawInvoice[]>(
-    `/invoices/by-timbrado?timbrado=${encodeURIComponent(timbrado)}`,
-  );
-  const invoices = (raw ?? []).map(normalizeInvoice);
-  return nextInvoiceNumber(invoices, timbrado, serie);
+export async function getValidTaxStamps(): Promise<TaxStamp[]> {
+  const raw = await apiRequest<TaxStamp[]>("/tax-stamps/valid");
+  return (raw ?? []).map((stamp) => ({
+    ...stamp,
+    id: Number(stamp.id),
+    nextSequence: stamp.nextSequence ? Number(stamp.nextSequence) : 0,
+  }));
 }
 
 function summarize(invoices: Invoice[]): StatusSummary {
   return {
     count: invoices.length,
     total: roundCurrency(
-      invoices.reduce((sum, invoice) => sum + invoiceTotal(invoice), 0),
+      invoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
     ),
   };
 }
@@ -308,9 +378,7 @@ export async function getInvoiceStats(): Promise<InvoiceStats> {
     cancelled,
     all: {
       count: pending.count + paid.count + cancelled.count,
-      total: roundCurrency(
-        pending.total + paid.total + cancelled.total,
-      ),
+      total: roundCurrency(pending.total + paid.total + cancelled.total),
     },
   };
 }
@@ -334,44 +402,17 @@ export async function updateInvoice(
   return normalizeInvoice(raw);
 }
 
-/**
- * Crea una factura generando el numero en el cliente. Si el backend rechaza
- * el numero por duplicado, regenera y reintenta una vez.
- */
 export async function createInvoiceFromForm(
   data: ParsedInvoice,
+  issuer: IssuerInfo,
 ): Promise<Invoice> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const invoiceNumber = await getNextInvoiceNumber(
-        data.timbrado,
-        data.serie,
-      );
-      return await createInvoice(
-        buildInvoicePayload(data, 0, invoiceNumber),
-      );
-    } catch (error) {
-      if (attempt === 0 && isDuplicateInvoiceNumber(error)) {
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  throw new ApiError(
-    409,
-    "CONFLICT",
-    "No se pudo asignar un número de factura libre. Intentá de nuevo en unos segundos.",
-  );
+  return createInvoice(buildInvoicePayload(data, issuer));
 }
 
-/**
- * Actualiza una factura pendiente reutilizando numero y timbrado actuales:
- * el cliente nunca puede modificarlos.
- */
 export async function updateInvoiceFromForm(
   id: number,
   data: ParsedInvoice,
+  issuer: IssuerInfo,
 ): Promise<Invoice> {
   const current = await getInvoice(id);
 
@@ -383,18 +424,7 @@ export async function updateInvoiceFromForm(
     );
   }
 
-  return updateInvoice(
-    id,
-    buildInvoicePayload(
-      {
-        ...data,
-        timbrado: current.timbrado,
-        serie: data.serie,
-      },
-      id,
-      current.invoiceNumber,
-    ),
-  );
+  return updateInvoice(id, buildInvoicePayload(data, issuer));
 }
 
 export async function changeInvoiceStatus(

@@ -1,35 +1,31 @@
-import { roundCurrency } from "./format";
-import type { InvoicePayload, ParsedInvoice } from "./types";
+import type { InvoicePayload, IssuerInfo, ParsedInvoice } from "./types";
 
-/**
- * El DTO de detalle exige `invoiceId` por validación de beans, aunque el mapper
- * del backend lo ignora (la relación se arma desde la cabecera). Por eso al crear
- * mandamos 0 y al editar el id real. Ver InvoiceDetailDTO.invoiceId en commons.
- */
 export function buildInvoicePayload(
   data: ParsedInvoice,
-  invoiceId: number,
-  invoiceNumber: string,
+  issuer: IssuerInfo,
 ): InvoicePayload {
-  const subtotal = roundCurrency(
-    data.details.reduce((sum, line) => sum + line.amount, 0),
-  );
-
   return {
     studentId: data.studentId,
-    timbrado: data.timbrado,
-    invoiceNumber,
-    taxId: data.taxId,
-    businessName: data.businessName,
+    taxStampId: data.taxStampId,
     issueDate: data.issueDate,
+    dueDate: data.dueDate,
     saleCondition: data.saleCondition,
-    // El backend lo recalcula; el DTO lo exige como no nulo.
-    totalAmount: subtotal,
+    customerName: data.customerName,
+    customerRuc: data.customerRuc,
+    customerAddress: data.customerAddress,
+    issuerName: issuer.name,
+    issuerRuc: issuer.ruc,
+    issuerActivity: issuer.activity,
+    issuerPhone: issuer.phone || null,
+    issuerAddress: issuer.address,
+    issuerEmail: issuer.email || null,
     details: data.details.map((line) => ({
-      invoiceId,
       description: line.description,
-      amount: line.amount,
-      vatRate: line.vatRate,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      vatType: line.vatType,
+      conceptType: line.conceptType,
+      conceptId: line.conceptId,
       correspondingMonth: line.correspondingMonth,
     })),
   };

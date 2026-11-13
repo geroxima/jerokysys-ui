@@ -1,10 +1,15 @@
-import type { Invoice, InvoiceLine } from "./types";
+import type {
+  Invoice,
+  InvoiceLine,
+  InvoiceTotalsData,
+  VatType,
+} from "./types";
 
 const currencyFormatter = new Intl.NumberFormat("es-PY", {
   style: "currency",
   currency: "PYG",
   minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 0,
 });
 
 const dateFormatter = new Intl.DateTimeFormat("es-PY", {
@@ -124,43 +129,70 @@ export function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-export function lineVat(line: Pick<InvoiceLine, "amount" | "vatRate">): number {
-  return roundCurrency((line.amount * line.vatRate) / 100);
+export function lineSubtotal(line: Pick<InvoiceLine, "quantity" | "unitPrice">): number {
+  return roundCurrency(line.quantity * line.unitPrice);
 }
 
-export function lineTotal(line: Pick<InvoiceLine, "amount" | "vatRate">): number {
-  return roundCurrency(line.amount + lineVat(line));
+/** IVA incluido en el subtotal de la línea. */
+export function lineVat(line: Pick<InvoiceLine, "subtotal" | "vatType">): number {
+  if (line.vatType === "GRAVADA_5") {
+    return roundCurrency(line.subtotal / 21);
+  }
+  if (line.vatType === "GRAVADA_10") {
+    return roundCurrency(line.subtotal / 11);
+  }
+  return 0;
 }
 
-export function invoiceTotal(invoice: Pick<Invoice, "totalAmount" | "totalIva">): number {
-  return roundCurrency(invoice.totalAmount + invoice.totalIva);
-}
+export function totalsFromLines(lines: InvoiceLine[]): InvoiceTotalsData {
+  let exemptAmount = 0;
+  let sales5Amount = 0;
+  let sales10Amount = 0;
 
-export type ConceptToken = {
-  type: "MATRICULA" | "EXAMEN";
-  id: number;
-  label: string;
-};
-
-/** Las líneas referencian un concepto con `[MATRICULA#12]` al final. */
-export function parseConceptToken(description: string): ConceptToken | null {
-  const match = /\[(MATRICULA|EXAMEN)#(\d+)\]\s*$/i.exec(description);
-  if (!match) {
-    return null;
+  for (const line of lines) {
+    if (line.vatType === "EXENTA") {
+      exemptAmount += line.subtotal;
+    } else if (line.vatType === "GRAVADA_5") {
+      sales5Amount += line.subtotal;
+    } else if (line.vatType === "GRAVADA_10") {
+      sales10Amount += line.subtotal;
+    }
   }
 
-  const type = match[1].toUpperCase() as ConceptToken["type"];
+  sales5Amount = roundCurrency(sales5Amount);
+  sales10Amount = roundCurrency(sales10Amount);
+  exemptAmount = roundCurrency(exemptAmount);
+
+  const iva5Amount = roundCurrency(sales5Amount / 21);
+  const iva10Amount = roundCurrency(sales10Amount / 11);
+
   return {
-    type,
-    id: Number(match[2]),
-    label: type === "MATRICULA" ? "Matrícula" : "Examen",
+    exemptAmount,
+    sales5Amount,
+    sales10Amount,
+    iva5Amount,
+    iva10Amount,
+    totalAmount: roundCurrency(exemptAmount + sales5Amount + sales10Amount),
+    totalIva: roundCurrency(iva5Amount + iva10Amount),
   };
 }
 
-export function stripConceptToken(description: string): string {
-  return description
-    .replace(/\s*\[(MATRICULA|EXAMEN)#\d+\]\s*$/i, "")
-    .trim();
+/** El total de la factura ya incluye IVA. */
+export function invoiceTotal(invoice: Pick<Invoice, "totalAmount">): number {
+  return roundCurrency(invoice.totalAmount);
+}
+
+export function vatTypeLabel(vatType: VatType | null): string {
+  switch (vatType) {
+    case "GRAVADA_10":
+      return "Gravada 10%";
+    case "GRAVADA_5":
+      return "Gravada 5%";
+    case "EXENTA":
+      return "Exenta";
+    default:
+      return "—";
+  }
 }
 
 export function pluralize(
@@ -169,4 +201,14 @@ export function pluralize(
   plural: string,
 ): string {
   return count === 1 ? singular : plural;
+}
+
+/**
+ * Compatibilidad con facturas viejas que guardaban el concepto como token
+ * `[MATRICULA#12]` al final de la descripción.
+ */
+export function stripConceptToken(description: string): string {
+  return description
+    .replace(/\s*\[(MATRICULA|CUOTA|EXAMEN|OTRO)#\d+\]\s*$/i, "")
+    .trim();
 }

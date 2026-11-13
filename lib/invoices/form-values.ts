@@ -1,32 +1,28 @@
-import { parseInvoiceNumber } from "./numbering";
+import { stripConceptToken } from "./format";
+import { emptyLineValues } from "./validation";
 import type { Invoice, InvoiceFormValues } from "./types";
 
 export function invoiceToFormValues(invoice: Invoice): InvoiceFormValues {
-  const parsed = parseInvoiceNumber(invoice.invoiceNumber);
-
   return {
-    studentId: String(invoice.studentId),
-    timbrado: invoice.timbrado,
-    serie: parsed?.serie ?? "001",
-    taxId: invoice.taxId,
-    businessName: invoice.businessName,
+    studentId: invoice.studentId != null ? String(invoice.studentId) : "",
+    taxStampId: String(invoice.taxStampId),
     issueDate: invoice.issueDate,
+    dueDate: invoice.dueDate ?? "",
     saleCondition: invoice.saleCondition,
+    customerName: invoice.customerName,
+    customerRuc: invoice.customerRuc,
+    customerAddress: invoice.customerAddress ?? "",
     details:
       invoice.details.length > 0
         ? invoice.details.map((line) => ({
-            description: line.description,
-            amount: String(line.amount),
-            vatRate: line.vatRate,
+            conceptType: line.conceptType ?? "OTRO",
+            conceptId: line.conceptId != null ? String(line.conceptId) : "",
+            description: stripConceptToken(line.description) || line.description,
+            quantity: String(line.quantity),
+            unitPrice: String(line.unitPrice),
+            vatType: line.vatType,
             correspondingMonth: line.correspondingMonth ?? "",
           }))
-        : [
-            {
-              description: "",
-              amount: "",
-              vatRate: 10,
-              correspondingMonth: "",
-            },
-          ],
+        : [emptyLineValues()],
   };
 }

@@ -30,6 +30,15 @@ export function useEnrollments(filter: PagedFilter) {
   });
 }
 
+export function useEnrollmentsByStudent(studentId: number | null | undefined) {
+  return useQuery({
+    queryKey: [...enrollmentKeys.all, "student", studentId ?? 0] as const,
+    queryFn: () =>
+      apiGet<EnrollmentDTO[]>(`/enrollments/by-student/${studentId}`),
+    enabled: studentId != null && Number.isInteger(studentId) && studentId > 0,
+  });
+}
+
 export function useCreateEnrollment() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -22,6 +22,26 @@ const MESSAGE_TRANSLATIONS: Array<[RegExp, string]> = [
     "Solo las facturas pendientes pueden cambiar de estado.",
   ],
   [
+    /only pending invoices can be edited/i,
+    "Solo las facturas pendientes admiten cambios.",
+  ],
+  [
+    /only pending invoices can be deleted/i,
+    "Solo las facturas pendientes se pueden eliminar.",
+  ],
+  [
+    /tax stamp not found/i,
+    "No existe el timbrado seleccionado o está inactivo.",
+  ],
+  [
+    /is not valid on/i,
+    "El timbrado no está vigente en la fecha de emisión.",
+  ],
+  [
+    /issuerruc does not match/i,
+    "El RUC del emisor no coincide con el RUC del timbrado.",
+  ],
+  [
     /student not found/i,
     "No existe un alumno con el ID indicado.",
   ],

@@ -2,7 +2,6 @@ import {
   FileText,
   GraduationCap,
   LayoutGrid,
-  Megaphone,
   Settings,
   Users,
   UsersRound,

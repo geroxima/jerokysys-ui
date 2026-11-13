@@ -13,45 +13,47 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SALE_CONDITION_OPTIONS } from "@/lib/invoices/labels";
+import { formatDate } from "@/lib/invoices/format";
 import type {
   FieldErrors,
   InvoiceStatus,
-  InvoiceTimbrado,
   IssuerInfo,
   SaleCondition,
+  TaxStamp,
 } from "@/lib/invoices/types";
 
 export function InvoiceIssuerHeader({
   issuer,
-  timbrados,
+  taxStamps,
   mode,
+  taxStampId,
   invoiceNumber,
-  timbradoKey,
-  address,
   issueDate,
   saleCondition,
   status,
   errors,
-  onTimbradoChange,
+  onTaxStampChange,
   onDateChange,
   onConditionChange,
 }: {
   issuer: IssuerInfo;
-  timbrados: InvoiceTimbrado[];
+  taxStamps: TaxStamp[];
   mode: "create" | "edit";
+  taxStampId: string;
   invoiceNumber: string | null;
-  timbradoKey: string;
-  address: string;
   issueDate: string;
   saleCondition: SaleCondition;
   status?: InvoiceStatus;
   errors: FieldErrors;
-  onTimbradoChange: (key: string) => void;
+  onTaxStampChange: (value: string) => void;
   onDateChange: (value: string) => void;
   onConditionChange: (value: SaleCondition) => void;
 }) {
+  const selectedStamp =
+    taxStamps.find((stamp) => String(stamp.id) === taxStampId) ?? null;
+
   return (
-    <header className="grid gap-6 px-6 py-6 sm:grid-cols-[minmax(0,1fr)_260px] sm:px-8">
+    <header className="grid gap-6 px-6 py-6 sm:grid-cols-[minmax(0,1fr)_280px] sm:px-8">
       <div className="flex flex-col gap-3">
         <Image
           src="/jerokysys-logo.svg"
@@ -60,6 +62,7 @@ export function InvoiceIssuerHeader({
           height={26}
           priority
           unoptimized
+          style={{ width: "auto", height: 26 }}
         />
 
         <div className="flex flex-col gap-0.5 text-sm">
@@ -70,8 +73,8 @@ export function InvoiceIssuerHeader({
           <p className="text-muted-foreground">
             {issuer.ruc ? `RUC ${issuer.ruc}` : "RUC sin configurar"}
           </p>
-          {address ? (
-            <p className="text-muted-foreground">{address}</p>
+          {issuer.address ? (
+            <p className="text-muted-foreground">{issuer.address}</p>
           ) : (
             <p className="text-muted-foreground">Dirección sin configurar</p>
           )}
@@ -104,42 +107,67 @@ export function InvoiceIssuerHeader({
 
         <div className="grid gap-1.5">
           <Label
-            htmlFor="timbrado"
+            htmlFor="taxStampId"
             className="text-[11px] tracking-wide text-muted-foreground uppercase"
           >
             Timbrado
           </Label>
           {mode === "edit" ? (
-            <p className="text-sm font-medium tabular-nums">{timbradoKey}</p>
+            <div className="text-sm">
+              <p className="font-medium tabular-nums">
+                {selectedStamp
+                  ? `${selectedStamp.stampNumber} · ${selectedStamp.establishmentCode}-${selectedStamp.expeditionPoint}`
+                  : `#${taxStampId}`}
+              </p>
+              {selectedStamp ? (
+                <p className="text-[11px] text-muted-foreground">
+                  Vigencia {formatDate(selectedStamp.validFrom)} al{" "}
+                  {formatDate(selectedStamp.validUntil)}
+                </p>
+              ) : null}
+            </div>
           ) : (
             <>
               <Select
-                items={timbrados.map((option) => ({
-                  value: option.key,
-                  label: `${option.timbrado}-${option.serie} · ${option.label}`,
+                items={taxStamps.map((stamp) => ({
+                  value: String(stamp.id),
+                  label: `${stamp.stampNumber} · ${stamp.establishmentCode}-${stamp.expeditionPoint}`,
                 }))}
-                value={timbradoKey}
-                onValueChange={(value) => onTimbradoChange(String(value))}
+                value={taxStampId}
+                onValueChange={(value) => onTaxStampChange(String(value))}
               >
                 <SelectTrigger
-                  id="timbrado"
+                  id="taxStampId"
                   size="sm"
                   className="w-full bg-transparent"
-                  aria-invalid={Boolean(errors.timbrado || errors.serie)}
+                  aria-invalid={Boolean(errors.taxStampId)}
                 >
-                  <SelectValue />
+                  <SelectValue placeholder="Elegí un timbrado" />
                 </SelectTrigger>
                 <SelectContent>
-                  {timbrados.map((option) => (
-                    <SelectItem key={option.key} value={option.key}>
-                      {option.timbrado}-{option.serie} · {option.label}
+                  {taxStamps.length === 0 ? (
+                    <SelectItem value="__none" disabled>
+                      No hay timbrados vigentes
                     </SelectItem>
-                  ))}
+                  ) : (
+                    taxStamps.map((stamp) => (
+                      <SelectItem key={stamp.id} value={String(stamp.id)}>
+                        {stamp.stampNumber} · {stamp.establishmentCode}-
+                        {stamp.expeditionPoint}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
-              {errors.timbrado || errors.serie ? (
+              {errors.taxStampId ? (
                 <p role="alert" className="text-xs text-destructive">
-                  {errors.timbrado ?? errors.serie}
+                  {errors.taxStampId}
+                </p>
+              ) : null}
+              {selectedStamp ? (
+                <p className="text-[11px] text-muted-foreground">
+                  Vigencia {formatDate(selectedStamp.validFrom)} al{" "}
+                  {formatDate(selectedStamp.validUntil)}
                 </p>
               ) : null}
             </>
@@ -158,9 +186,10 @@ export function InvoiceIssuerHeader({
             type="date"
             value={issueDate}
             onChange={(event) => onDateChange(event.target.value)}
+            disabled={mode === "edit"}
             aria-invalid={Boolean(errors.issueDate)}
             aria-describedby={errors.issueDate ? "issueDate-error" : undefined}
-            className="h-7 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-1"
+            className="h-7 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-1 disabled:opacity-100"
           />
           {errors.issueDate ? (
             <p id="issueDate-error" role="alert" className="text-xs text-destructive">

@@ -4,32 +4,68 @@ export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 export const SALE_CONDITIONS = ["CONTADO", "CREDITO"] as const;
 export type SaleCondition = (typeof SALE_CONDITIONS)[number];
 
-export const VAT_RATES = [10, 5, 0] as const;
-export type VatRate = (typeof VAT_RATES)[number];
+export const VAT_TYPES = ["GRAVADA_10", "GRAVADA_5", "EXENTA"] as const;
+export type VatType = (typeof VAT_TYPES)[number];
+
+export const CONCEPT_TYPES = ["MATRICULA", "CUOTA", "EXAMEN", "OTRO"] as const;
+export type InvoiceConceptType = (typeof CONCEPT_TYPES)[number];
 
 /** Línea de factura ya normalizada (los montos llegan como string desde la API). */
 export type InvoiceLine = {
   id: number | null;
   invoiceId: number | null;
   description: string;
-  amount: number;
-  vatRate: number;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  vatType: VatType;
+  conceptType: InvoiceConceptType | null;
+  conceptId: number | null;
   correspondingMonth: string | null;
 };
 
 export type Invoice = {
   id: number;
-  studentId: number;
-  timbrado: string;
+  studentId: number | null;
+  taxStampId: number;
+  establishmentCode: string;
+  expeditionPoint: string;
+  sequenceNumber: number;
   invoiceNumber: string;
-  taxId: string;
-  businessName: string;
   issueDate: string;
+  dueDate: string | null;
   saleCondition: SaleCondition;
+  paymentStatus: InvoiceStatus;
+  customerName: string;
+  customerRuc: string;
+  customerAddress: string | null;
+  issuerName: string;
+  issuerRuc: string;
+  issuerActivity: string;
+  issuerPhone: string | null;
+  issuerAddress: string;
+  issuerEmail: string | null;
+  stampNumber: string;
+  stampValidFrom: string;
+  stampValidUntil: string;
+  exemptAmount: number;
+  sales5Amount: number;
+  sales10Amount: number;
+  iva5Amount: number;
+  iva10Amount: number;
   totalAmount: number;
   totalIva: number;
-  paymentStatus: InvoiceStatus;
   details: InvoiceLine[];
+};
+
+export type InvoiceTotalsData = {
+  exemptAmount: number;
+  sales5Amount: number;
+  sales10Amount: number;
+  iva5Amount: number;
+  iva10Amount: number;
+  totalAmount: number;
+  totalIva: number;
 };
 
 export type InvoicePage = {
@@ -63,7 +99,7 @@ export type InvoiceSortField =
   | "id"
   | "issueDate"
   | "invoiceNumber"
-  | "businessName"
+  | "customerName"
   | "totalAmount"
   | "paymentStatus";
 
@@ -74,8 +110,8 @@ export type InvoiceFilter =
   | { type: "query"; value: string }
   | { type: "student"; value: string }
   | { type: "invoiceNumber"; value: string }
-  | { type: "timbrado"; value: string }
-  | { type: "taxId"; value: string }
+  | { type: "stampNumber"; value: string }
+  | { type: "customerRuc"; value: string }
   | { type: "date"; value: string }
   | { type: "dateRange"; from: string; to: string }
   | { type: "amountRange"; min: string; max: string }
@@ -88,11 +124,27 @@ export type InvoiceQuery = {
   page: number;
 };
 
+/** Timbrado autorizado que devuelve `/tax-stamps/valid`. */
+export type TaxStamp = {
+  id: number;
+  businessRuc: string;
+  stampNumber: string;
+  establishmentCode: string;
+  expeditionPoint: string;
+  validFrom: string;
+  validUntil: string;
+  nextSequence?: number;
+  active?: boolean;
+};
+
 /** Estado del formulario: los montos son strings para poder escribirlos. */
 export type InvoiceLineValues = {
+  conceptType: InvoiceConceptType;
+  conceptId: string;
   description: string;
-  amount: string;
-  vatRate: number;
+  quantity: string;
+  unitPrice: string;
+  vatType: VatType;
   correspondingMonth: string;
 };
 
@@ -106,23 +158,15 @@ export type IssuerInfo = {
   activity: string;
 };
 
-/** Timbrado habilitado; cada uno puede tener su propia dirección. */
-export type InvoiceTimbrado = {
-  timbrado: string;
-  serie: string;
-  label: string;
-  address: string;
-  key: string;
-};
-
 export type InvoiceFormValues = {
   studentId: string;
-  timbrado: string;
-  serie: string;
-  taxId: string;
-  businessName: string;
+  taxStampId: string;
   issueDate: string;
+  dueDate: string;
   saleCondition: SaleCondition;
+  customerName: string;
+  customerRuc: string;
+  customerAddress: string;
   details: InvoiceLineValues[];
 };
 
@@ -133,37 +177,49 @@ export type InvoiceActionResult =
   | { ok: false; message: string; fieldErrors?: FieldErrors };
 
 export type ParsedInvoiceLine = {
+  conceptType: InvoiceConceptType;
+  conceptId: number | null;
   description: string;
-  amount: number;
-  vatRate: number;
+  quantity: number;
+  unitPrice: number;
+  vatType: VatType;
   correspondingMonth: string | null;
 };
 
 export type ParsedInvoice = {
   studentId: number;
-  timbrado: string;
-  serie: string;
-  taxId: string;
-  businessName: string;
+  taxStampId: number;
   issueDate: string;
+  dueDate: string | null;
   saleCondition: SaleCondition;
+  customerName: string;
+  customerRuc: string;
+  customerAddress: string | null;
   details: ParsedInvoiceLine[];
 };
 
 export type InvoicePayload = {
   studentId: number;
-  timbrado: string;
-  invoiceNumber: string;
-  taxId: string;
-  businessName: string;
+  taxStampId: number;
   issueDate: string;
+  dueDate: string | null;
   saleCondition: SaleCondition;
-  totalAmount: number;
+  customerName: string;
+  customerRuc: string;
+  customerAddress: string | null;
+  issuerName: string;
+  issuerRuc: string;
+  issuerActivity: string;
+  issuerPhone: string | null;
+  issuerAddress: string;
+  issuerEmail: string | null;
   details: Array<{
-    invoiceId: number;
     description: string;
-    amount: number;
-    vatRate: number;
+    quantity: number;
+    unitPrice: number;
+    vatType: VatType;
+    conceptType: InvoiceConceptType;
+    conceptId: number | null;
     correspondingMonth: string | null;
   }>;
 };

@@ -101,7 +101,7 @@ export function InvoicesTable({
             sortable={sortable}
           />
           <SortHeader
-            field="businessName"
+            field="customerName"
             label="Cliente"
             query={query}
             sortable={sortable}
@@ -143,9 +143,12 @@ export function InvoicesTable({
             </TableCell>
 
             <TableCell className="max-w-[240px] px-3 py-2.5 whitespace-normal">
-              <p className="truncate font-medium">{invoice.businessName}</p>
+              <p className="truncate font-medium">{invoice.customerName}</p>
               <p className="truncate text-xs text-muted-foreground">
-                RUC {invoice.taxId}
+                RUC {invoice.customerRuc}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                Alumno {invoice.studentId ? `#${invoice.studentId}` : "—"}
               </p>
             </TableCell>
 

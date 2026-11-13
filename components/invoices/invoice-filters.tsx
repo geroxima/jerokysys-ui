@@ -97,10 +97,10 @@ function draftFromFilter(filter: InvoiceFilter): Draft {
       return { ...base, type: "student", value: filter.value };
     case "invoiceNumber":
       return { ...base, type: "invoiceNumber", value: filter.value };
-    case "timbrado":
-      return { ...base, type: "timbrado", value: filter.value };
-    case "taxId":
-      return { ...base, type: "taxId", value: filter.value };
+    case "stampNumber":
+      return { ...base, type: "stampNumber", value: filter.value };
+    case "customerRuc":
+      return { ...base, type: "customerRuc", value: filter.value };
     case "date":
       return { ...base, type: "date", value: filter.value };
     case "dateRange":
@@ -122,7 +122,7 @@ function buildFilter(draft: Draft): { filter?: InvoiceFilter; error?: string } {
     case "query":
       return value
         ? { filter: { type: "query", value } }
-        : { error: "Ingresá una razón social." };
+        : { error: "Ingresá un cliente." };
     case "student":
       return /^\d+$/.test(value)
         ? { filter: { type: "student", value } }
@@ -131,13 +131,13 @@ function buildFilter(draft: Draft): { filter?: InvoiceFilter; error?: string } {
       return isValidInvoiceNumber(value)
         ? { filter: { type: "invoiceNumber", value } }
         : { error: "Usá el formato 001-001-0000123." };
-    case "timbrado":
+    case "stampNumber":
       return value
-        ? { filter: { type: "timbrado", value } }
+        ? { filter: { type: "stampNumber", value } }
         : { error: "Ingresá el timbrado." };
-    case "taxId":
+    case "customerRuc":
       return value
-        ? { filter: { type: "taxId", value } }
+        ? { filter: { type: "customerRuc", value } }
         : { error: "Ingresá el RUC." };
     case "date":
       return draft.value
@@ -299,8 +299,8 @@ export function InvoiceFilters({
               name="q"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por razón social"
-              aria-label="Buscar por razón social"
+              placeholder="Buscar por cliente"
+              aria-label="Buscar por cliente"
               className="h-9 bg-background pr-8 pl-8"
             />
             {search ? (
@@ -401,7 +401,7 @@ export function InvoiceFilters({
 
             {draft.type === "query" ? (
               <Field
-                label="Razón social"
+                label="Cliente"
                 id="filter-query"
                 value={draft.value}
                 onChange={(value) => updateDraft({ value })}
@@ -435,23 +435,23 @@ export function InvoiceFilters({
               />
             ) : null}
 
-            {draft.type === "timbrado" ? (
+            {draft.type === "stampNumber" ? (
               <Field
                 label="Timbrado"
-                id="filter-timbrado"
+                id="filter-stamp-number"
                 value={draft.value}
                 onChange={(value) => updateDraft({ value })}
-                placeholder="Ej. 001"
+                placeholder="Ej. 12345678"
               />
             ) : null}
 
-            {draft.type === "taxId" ? (
+            {draft.type === "customerRuc" ? (
               <Field
                 label="RUC"
-                id="filter-tax-id"
+                id="filter-customer-ruc"
                 value={draft.value}
                 onChange={(value) => updateDraft({ value })}
-                placeholder="Ej. 20123456789"
+                placeholder="Ej. 80012345-6"
                 inputMode="numeric"
               />
             ) : null}
@@ -496,7 +496,7 @@ export function InvoiceFilters({
             {draft.type === "amountRange" ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="filter-min">Subtotal mínimo</Label>
+                  <Label htmlFor="filter-min">Total mínimo</Label>
                   <Input
                     id="filter-min"
                     type="number"
@@ -509,7 +509,7 @@ export function InvoiceFilters({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="filter-max">Subtotal máximo</Label>
+                  <Label htmlFor="filter-max">Total máximo</Label>
                   <Input
                     id="filter-max"
                     type="number"
