@@ -23,6 +23,9 @@ export async function saveSession(token: string) {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: jwtMaxAge(token),
+    ...(process.env.AUTH_COOKIE_DOMAIN
+      ? { domain: process.env.AUTH_COOKIE_DOMAIN }
+      : {}),
   });
 }
 
