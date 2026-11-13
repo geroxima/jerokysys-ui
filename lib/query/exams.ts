@@ -34,6 +34,14 @@ export function useExams(filter: PagedFilter) {
   });
 }
 
+export function useExam(id: number | null) {
+  return useQuery({
+    queryKey: examKeys.detail(id ?? 0),
+    queryFn: () => apiGet<ExamDTO>(`/exams/${id}`),
+    enabled: id != null && Number.isInteger(id) && id > 0,
+  });
+}
+
 export type ExamResultRowInput = {
   id?: number;
   studentId: number;

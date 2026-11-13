@@ -1,30 +1,18 @@
+"use client";
+
+import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { DisciplinesList } from "@/components/academic/disciplines-list";
 import { SearchBar } from "@/components/search-bar";
 import { Button } from "@/components/ui/button";
+import { usePagedFilter } from "@/lib/use-paged-filter";
 
-export const instant = false;
-
-type Props = {
-  searchParams: Promise<{
-    page?: string;
-    size?: string;
-    sort?: string;
-    direction?: string;
-    name?: string;
-  }>;
-};
-
-export default async function DisciplinesPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const filter = {
-    page: Number(params.page ?? 0),
-    size: Number(params.size ?? 10),
-    sort: params.sort ?? "name",
-    direction: (params.direction ?? "ASC") as "ASC" | "DESC",
-  };
+function DisciplinesContent() {
+  const params = useSearchParams();
+  const filter = usePagedFilter("name", "ASC");
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -36,7 +24,11 @@ export default async function DisciplinesPage({ searchParams }: Props) {
       </div>
 
       <div className="mb-6 flex items-center justify-between">
-        <SearchBar placeholder="Buscar por nombre..." defaultValue={params.name} paramName="name" />
+        <SearchBar
+          placeholder="Buscar por nombre..."
+          defaultValue={params.get("name") ?? undefined}
+          paramName="name"
+        />
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
             <Link href="/disciplines" className="flex items-center gap-2">
@@ -55,5 +47,13 @@ export default async function DisciplinesPage({ searchParams }: Props) {
 
       <DisciplinesList filter={filter} />
     </div>
+  );
+}
+
+export default function DisciplinesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
+      <DisciplinesContent />
+    </Suspense>
   );
 }
