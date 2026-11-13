@@ -1,7 +1,13 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
+"use client";
 
-import { buttonVariants } from "@/components/ui/button";
+import { Suspense } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { RotateCw } from "lucide-react";
+
+import { NotFoundPage } from "@/components/not-found-page";
+import { TableSkeleton } from "@/components/suspense-table";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,35 +17,89 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  getClassById,
-  getExamById,
-  getExamResultsByExam,
-} from "@/lib/academic";
+import { isNotFound } from "@/lib/api-client";
+import { useClass } from "@/lib/query/classes";
+import { useExam } from "@/lib/query/exams";
+import { useExamResultsByExam } from "@/lib/query/exam-results";
 import { cn } from "@/lib/utils";
-import { notFoundOn404 } from "@/lib/not-found";
 
-export const instant = false;
+export default function ExamPreviewPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 p-8">
+          <TableSkeleton columns={3} />
+        </div>
+      }
+    >
+      <ExamPreviewContent />
+    </Suspense>
+  );
+}
 
-export default async function ExamPreviewPage({
-  params,
-}: PageProps<"/exams/[id]">) {
-  const { id } = await params;
-  const examId = Number(id);
-  if (!Number.isInteger(examId) || examId < 1) notFound();
+function ExamPreviewContent() {
+  const params = useParams<{ id: string }>();
+  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const examId = Number(rawId);
 
-  const exam = await notFoundOn404(getExamById(examId));
-  const [results, danceClass] = await Promise.all([
-    getExamResultsByExam(examId),
-    getClassById(exam.danceClassId).catch(() => null),
-  ]);
+  const examQuery = useExam(examId);
+  const resultsQuery = useExamResultsByExam(examId);
+  const classQuery = useClass(examQuery.data?.danceClassId);
+
+  if (examQuery.isLoading || resultsQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-8">
+        <TableSkeleton columns={3} />
+      </div>
+    );
+  }
+
+  if (examQuery.isError) {
+    if (isNotFound(examQuery.error)) {
+      return (
+        <NotFoundPage
+          title="Examen no encontrado"
+          description="El examen que buscás no existe o ya no está disponible."
+          href="/exams"
+          actionLabel="Volver a exámenes"
+        />
+      );
+    }
+
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 p-8 text-center">
+        <p className="text-sm font-medium">No se pudo cargar el examen</p>
+        <Button variant="outline" size="sm" onClick={() => examQuery.refetch()}>
+          <RotateCw className="size-4" />
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
+
+  if (!examQuery.data) {
+    return (
+      <NotFoundPage
+        title="Examen no encontrado"
+        description="El examen que buscás no existe o ya no está disponible."
+        href="/exams"
+        actionLabel="Volver a exámenes"
+      />
+    );
+  }
+
+  const exam = examQuery.data;
+  const results = resultsQuery.data ?? [];
+  const danceClass = classQuery.data ?? null;
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{exam.examName}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Vista previa del examen</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Vista previa del examen
+          </p>
         </div>
         <div className="flex gap-2">
           <Link
@@ -97,7 +157,10 @@ export default async function ExamPreviewPage({
             <TableBody>
               {results.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={3}
+                    className="h-24 text-center text-muted-foreground"
+                  >
                     No hay alumnos registrados en este examen.
                   </TableCell>
                 </TableRow>
@@ -105,7 +168,9 @@ export default async function ExamPreviewPage({
                 results.map((result, index) => (
                   <TableRow key={result.id ?? `${result.studentId}-${index}`}>
                     <TableCell className="font-medium">
-                      {result.studentId == null ? "Alumno sin ID" : `Alumno #${result.studentId}`}
+                      {result.studentId == null
+                        ? "Alumno sin ID"
+                        : `Alumno #${result.studentId}`}
                     </TableCell>
                     <TableCell>{result.score ?? "—"}</TableCell>
                     <TableCell>{result.remarks || "—"}</TableCell>

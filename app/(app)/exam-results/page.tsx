@@ -1,34 +1,23 @@
+"use client";
+
+import { Suspense } from "react";
 import Link from "next/link";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { ExamResultsList } from "@/components/academic/exam-results-list";
 import { SearchBar } from "@/components/search-bar";
 import { Button } from "@/components/ui/button";
+import { usePagedFilter } from "@/lib/use-paged-filter";
 
-export const instant = false;
-
-type Props = {
-  searchParams: Promise<{
-    page?: string;
-    size?: string;
-    sort?: string;
-    direction?: string;
-  }>;
-};
-
-export default async function ExamResultsPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const filter = {
-    page: Number(params.page ?? 0),
-    size: Number(params.size ?? 10),
-    sort: params.sort ?? "id",
-    direction: (params.direction ?? "DESC") as "ASC" | "DESC",
-  };
+function ExamResultsContent() {
+  const filter = usePagedFilter("id", "DESC");
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Resultados de Exámenes</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Resultados de Exámenes
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Calificaciones y observaciones de exámenes
         </p>
@@ -54,5 +43,13 @@ export default async function ExamResultsPage({ searchParams }: Props) {
 
       <ExamResultsList filter={filter} />
     </div>
+  );
+}
+
+export default function ExamResultsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
+      <ExamResultsContent />
+    </Suspense>
   );
 }

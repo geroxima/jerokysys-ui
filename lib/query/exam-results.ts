@@ -31,6 +31,14 @@ export function useExamResults(filter: PagedFilter) {
   });
 }
 
+export function useExamResultsByExam(examId: number | null) {
+  return useQuery({
+    queryKey: examResultKeys.byExam(examId ?? 0),
+    queryFn: () => apiGet<ExamResultDTO[]>(`/exam-results/by-exam/${examId}`),
+    enabled: examId != null && Number.isInteger(examId) && examId > 0,
+  });
+}
+
 export function useCreateExamResult() {
   const queryClient = useQueryClient();
   return useMutation({

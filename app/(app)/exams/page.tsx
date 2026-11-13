@@ -1,30 +1,18 @@
+"use client";
+
+import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { ExamsList } from "@/components/academic/exams-list";
 import { SearchBar } from "@/components/search-bar";
 import { Button } from "@/components/ui/button";
+import { usePagedFilter } from "@/lib/use-paged-filter";
 
-export const instant = false;
-
-type Props = {
-  searchParams: Promise<{
-    page?: string;
-    size?: string;
-    sort?: string;
-    direction?: string;
-    name?: string;
-  }>;
-};
-
-export default async function ExamsPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const filter = {
-    page: Number(params.page ?? 0),
-    size: Number(params.size ?? 10),
-    sort: params.sort ?? "examDate",
-    direction: (params.direction ?? "DESC") as "ASC" | "DESC",
-  };
+function ExamsContent() {
+  const params = useSearchParams();
+  const filter = usePagedFilter("examDate", "DESC");
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -36,7 +24,11 @@ export default async function ExamsPage({ searchParams }: Props) {
       </div>
 
       <div className="mb-6 flex items-center justify-between">
-        <SearchBar placeholder="Buscar por nombre..." defaultValue={params.name} paramName="name" />
+        <SearchBar
+          placeholder="Buscar por nombre..."
+          defaultValue={params.get("name") ?? undefined}
+          paramName="name"
+        />
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
             <Link href="/exams" className="flex items-center gap-2">
@@ -55,5 +47,13 @@ export default async function ExamsPage({ searchParams }: Props) {
 
       <ExamsList filter={filter} />
     </div>
+  );
+}
+
+export default function ExamsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
+      <ExamsContent />
+    </Suspense>
   );
 }

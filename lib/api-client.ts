@@ -4,16 +4,31 @@ export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1"
 ).replace(/\/+$/, "");
 
-export class ApiClientError extends Error {
+export class ApiError extends Error {
   status: number;
   code: string | null;
 
   constructor(status: number, code: string | null, message: string | null) {
     super(message ?? `API error ${status}`);
-    this.name = "ApiClientError";
+    this.name = "ApiError";
     this.status = status;
     this.code = code;
   }
+}
+
+/** Alias histórico para no romper imports existentes. */
+export const ApiClientError = ApiError;
+
+export function isUnauthorized(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 401;
+}
+
+export function isForbidden(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 403;
+}
+
+export function isNotFound(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 404;
 }
 
 export function buildPagedParams(filter: PagedFilter): string {
@@ -26,6 +41,33 @@ export function buildPagedParams(filter: PagedFilter): string {
   return params.toString();
 }
 
+let handlingUnauthorized = false;
+
+/**
+ * La cookie es httpOnly: el cliente no puede borrarla. Cuando el gateway
+ * responde 401, limpiamos la sesión por el endpoint de logout y volvemos al
+ * login. El flag evita varios redirects si hay llamadas en paralelo.
+ */
+async function handleUnauthorized() {
+  if (typeof window === "undefined" || handlingUnauthorized) {
+    return;
+  }
+
+  handlingUnauthorized = true;
+
+  try {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+  } catch {
+    // Si el logout falla igual mandamos al login; proxy.ts limpia la cookie
+    // vencida en la próxima navegación.
+  }
+
+  window.location.replace("/login");
+}
+
 async function unwrap<T>(response: Response): Promise<T> {
   if (response.status === 204) {
     return undefined as T;
@@ -33,6 +75,7 @@ async function unwrap<T>(response: Response): Promise<T> {
 
   const text = await response.text().catch(() => "");
   let envelope: ResponseWrapper<T> | null = null;
+
   if (text) {
     try {
       envelope = JSON.parse(text) as ResponseWrapper<T>;
@@ -42,10 +85,10 @@ async function unwrap<T>(response: Response): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new ApiClientError(
+    throw new ApiError(
       response.status,
       envelope?.code ?? null,
-      envelope?.message ?? text ?? `Request failed: ${response.statusText}`,
+      envelope?.message ?? text ?? `Error HTTP ${response.status}`,
     );
   }
 
@@ -53,8 +96,8 @@ async function unwrap<T>(response: Response): Promise<T> {
     return undefined as T;
   }
 
-  if (!envelope.success) {
-    throw new ApiClientError(
+  if (envelope.success === false) {
+    throw new ApiError(
       envelope.status || response.status,
       envelope.code,
       envelope.message,
@@ -64,25 +107,55 @@ async function unwrap<T>(response: Response): Promise<T> {
   return envelope.data;
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "GET",
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
+export async function apiRequest<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+
+  if (init.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(
+      `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`,
+      {
+        ...init,
+        headers,
+        credentials: "include",
+        cache: "no-store",
+      },
+    );
+  } catch {
+    throw new ApiError(
+      0,
+      null,
+      "No se pudo conectar con el servidor. Verificá que la API esté en línea.",
+    );
+  }
+
+  if (response.status === 401) {
+    await handleUnauthorized();
+  }
+
   return unwrap<T>(response);
 }
 
-export async function apiWrite<T>(
+export function apiGet<T>(path: string): Promise<T> {
+  return apiRequest<T>(path, { method: "GET" });
+}
+
+export function apiWrite<T>(
   path: string,
-  method: "POST" | "PUT" | "DELETE",
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
   body?: unknown,
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return apiRequest<T>(path, {
     method,
-    credentials: "include",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return unwrap<T>(response);
 }

@@ -1,21 +1,57 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { KeyRound, Loader2, UserRound } from "lucide-react";
 
-import { login, type LoginState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function LoginForm() {
-  const [state, formAction, pending] = useActionState<LoginState, FormData>(
-    login,
-    null,
-  );
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+
+    const formData = new FormData(event.currentTarget);
+    const username = String(formData.get("username") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        setError(payload?.error ?? "No se pudo iniciar sesión.");
+        return;
+      }
+
+      router.replace("/dash");
+      router.refresh();
+    } catch {
+      setError(
+        "No se pudo conectar con el servidor. Verificá que la API esté en línea.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
-    <form action={formAction} className="flex w-80 flex-col gap-3">
+    <form onSubmit={handleSubmit} className="flex w-80 flex-col gap-3">
       <div className="relative">
         <Label htmlFor="username" className="sr-only">
           Usuario
@@ -56,9 +92,9 @@ export function LoginForm() {
         />
       </div>
 
-      {state?.error ? (
+      {error ? (
         <p role="alert" className="text-sm text-destructive">
-          {state.error}
+          {error}
         </p>
       ) : null}
 

@@ -39,6 +39,14 @@ export function useAllClasses() {
   });
 }
 
+export function useClass(id: number | null | undefined) {
+  return useQuery({
+    queryKey: classKeys.detail(id ?? 0),
+    queryFn: () => apiGet<DanceClassDTO>(`/classes/${id}`),
+    enabled: id != null && Number.isInteger(id) && id > 0,
+  });
+}
+
 export function useCreateClass() {
   const queryClient = useQueryClient();
   return useMutation({

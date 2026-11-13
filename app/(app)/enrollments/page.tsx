@@ -1,29 +1,16 @@
+"use client";
+
+import { Suspense } from "react";
 import Link from "next/link";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { EnrollmentsList } from "@/components/academic/enrollments-list";
 import { SearchBar } from "@/components/search-bar";
 import { Button } from "@/components/ui/button";
+import { usePagedFilter } from "@/lib/use-paged-filter";
 
-export const instant = false;
-
-type Props = {
-  searchParams: Promise<{
-    page?: string;
-    size?: string;
-    sort?: string;
-    direction?: string;
-  }>;
-};
-
-export default async function EnrollmentsPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const filter = {
-    page: Number(params.page ?? 0),
-    size: Number(params.size ?? 10),
-    sort: params.sort ?? "enrollmentDate",
-    direction: (params.direction ?? "DESC") as "ASC" | "DESC",
-  };
+function EnrollmentsContent() {
+  const filter = usePagedFilter("enrollmentDate", "DESC");
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -54,5 +41,13 @@ export default async function EnrollmentsPage({ searchParams }: Props) {
 
       <EnrollmentsList filter={filter} />
     </div>
+  );
+}
+
+export default function EnrollmentsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8" />}>
+      <EnrollmentsContent />
+    </Suspense>
   );
 }
