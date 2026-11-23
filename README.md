@@ -34,8 +34,8 @@ alumnos, responsables, profesores, facturas, campañas, asistencia y ajustes.
    ```
 
    Si no la definís, la aplicación usa `http://localhost:8080/api/v1`.
-   Los datos fiscales del emisor (`NEXT_PUBLIC_ISSUER_*` y
-   `NEXT_PUBLIC_INVOICE_TIMBRADOS`) también van en `.env.local`.
+   Los datos fiscales del emisor (`NEXT_PUBLIC_ISSUER_*`) también van en
+   `.env.local`. Los timbrados se cargan desde `GET /tax-stamps/valid`.
 
 ## Scripts
 

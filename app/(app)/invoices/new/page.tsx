@@ -7,29 +7,31 @@ import { ForbiddenPage } from "@/components/forbidden-page";
 import { InvoiceForm } from "@/components/invoices/invoice-form";
 import { InvoiceFormSkeleton } from "@/components/invoices/invoice-skeletons";
 import { usePermissions } from "@/components/permission-provider";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { todayIsoDate } from "@/lib/invoices/format";
 import { getIssuerConfig } from "@/lib/invoices/issuer";
 import { emptyInvoiceFormValues } from "@/lib/invoices/validation";
-import { useNextInvoiceNumbers } from "@/lib/query/invoices";
+import { useValidTaxStamps } from "@/lib/query/invoices";
 
 export default function NewInvoicePage() {
   const { can } = usePermissions();
-  const { issuer, timbrados } = getIssuerConfig();
-  const fallback = timbrados[0];
-  const previews = useNextInvoiceNumbers(timbrados);
+  const issuer = getIssuerConfig();
+  const taxStampsQuery = useValidTaxStamps();
+  const taxStamps = taxStampsQuery.data ?? [];
+  const fallbackTaxStampId = taxStamps[0] ? String(taxStamps[0].id) : "";
+
+  if (taxStampsQuery.isLoading) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-8 py-10">
+        <InvoiceFormSkeleton />
+      </div>
+    );
+  }
 
   if (!can("invoices:write")) {
     return (
       <div className="mx-auto w-full max-w-5xl px-8 py-10">
         <ForbiddenPage />
-      </div>
-    );
-  }
-
-  if (previews.isLoading) {
-    return (
-      <div className="mx-auto w-full max-w-5xl px-8 py-10">
-        <InvoiceFormSkeleton />
       </div>
     );
   }
@@ -51,23 +53,31 @@ export default function NewInvoicePage() {
               Nueva factura
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              El número se asigna automáticamente según el timbrado elegido.
+              Elegí el alumno, los conceptos y el timbrado. El número se asigna
+              al guardar.
             </p>
           </div>
         </header>
+
+        {taxStamps.length === 0 ? (
+          <Alert>
+            <AlertTitle>No hay timbrados vigentes</AlertTitle>
+            <AlertDescription>
+              Cargá un timbrado vigente antes de emitir facturas.
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <InvoiceForm
           key="new"
           mode="create"
           initialValues={emptyInvoiceFormValues(
             todayIsoDate(),
-            fallback.timbrado,
-            fallback.serie,
+            fallbackTaxStampId,
           )}
           cancelHref="/invoices"
           issuer={issuer}
-          timbrados={timbrados}
-          numberByTimbrado={previews.data ?? {}}
+          taxStamps={taxStamps}
         />
       </div>
     </div>

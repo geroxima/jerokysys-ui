@@ -14,9 +14,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { isNotFound } from "@/lib/api-client";
 import { invoiceToFormValues } from "@/lib/invoices/form-values";
-import { getIssuerConfig } from "@/lib/invoices/issuer";
 import { INVOICE_STATUS_LABELS } from "@/lib/invoices/labels";
-import type { InvoiceTimbrado } from "@/lib/invoices/types";
+import type { IssuerInfo, TaxStamp } from "@/lib/invoices/types";
 import { useInvoice } from "@/lib/query/invoices";
 import { cn } from "@/lib/utils";
 
@@ -102,7 +101,7 @@ function EditInvoiceContent() {
     return (
       <NotFoundPage
         title="Factura no encontrada"
-        description="La factura que querés editar no existe o fue eliminada."
+        description="La factura que buscás no existe o fue eliminada."
         href="/invoices"
         actionLabel="Volver a facturas"
       />
@@ -159,24 +158,27 @@ function EditInvoiceContent() {
     );
   }
 
-  const initialValues = invoiceToFormValues(invoice);
-  const { issuer, timbrados } = getIssuerConfig();
-  const currentKey = `${initialValues.timbrado}-${initialValues.serie}`;
+  const issuer: IssuerInfo = {
+    name: invoice.issuerName,
+    ruc: invoice.issuerRuc,
+    activity: invoice.issuerActivity,
+    phone: invoice.issuerPhone ?? "",
+    address: invoice.issuerAddress,
+    email: invoice.issuerEmail ?? "",
+  };
 
-  const options: InvoiceTimbrado[] = timbrados.some(
-    (option) => option.key === currentKey,
-  )
-    ? timbrados
-    : [
-        {
-          timbrado: initialValues.timbrado,
-          serie: initialValues.serie,
-          label: "Timbrado de la factura",
-          address: "",
-          key: currentKey,
-        },
-        ...timbrados,
-      ];
+  const taxStamps: TaxStamp[] = [
+    {
+      id: invoice.taxStampId,
+      businessRuc: invoice.issuerRuc,
+      stampNumber: invoice.stampNumber,
+      establishmentCode: invoice.establishmentCode,
+      expeditionPoint: invoice.expeditionPoint,
+      validFrom: invoice.stampValidFrom,
+      validUntil: invoice.stampValidUntil,
+      active: true,
+    },
+  ];
 
   return (
     <div className="mx-auto w-full max-w-5xl px-8 py-10">
@@ -188,7 +190,7 @@ function EditInvoiceContent() {
             Editar factura
           </h1>
           <p className="mt-2 text-sm text-muted-foreground tabular-nums">
-            {invoice.invoiceNumber} · {invoice.businessName}
+            {invoice.invoiceNumber} · {invoice.customerName}
           </p>
         </header>
 
@@ -196,11 +198,10 @@ function EditInvoiceContent() {
           key={invoice.id}
           mode="edit"
           invoiceId={invoice.id}
-          initialValues={initialValues}
+          initialValues={invoiceToFormValues(invoice)}
           cancelHref={`/invoices/${invoice.id}`}
           issuer={issuer}
-          timbrados={options}
-          numberByTimbrado={{}}
+          taxStamps={taxStamps}
           fixedInvoiceNumber={invoice.invoiceNumber}
           status={invoice.paymentStatus}
         />

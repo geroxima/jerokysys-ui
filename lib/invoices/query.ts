@@ -11,7 +11,7 @@ const SORT_FIELDS: InvoiceSortField[] = [
   "id",
   "issueDate",
   "invoiceNumber",
-  "businessName",
+  "customerName",
   "totalAmount",
   "paymentStatus",
 ];
@@ -59,8 +59,8 @@ export function parseInvoiceQuery(
   const query = firstValue(params.q);
   const student = firstValue(params.student);
   const invoiceNumber = firstValue(params.invoiceNumber);
-  const timbrado = firstValue(params.timbrado);
-  const taxId = firstValue(params.taxId);
+  const stampNumber = firstValue(params.stampNumber);
+  const customerRuc = firstValue(params.ruc);
   const date = parseDate(firstValue(params.date));
   const from = parseDate(firstValue(params.from));
   const to = parseDate(firstValue(params.to));
@@ -78,10 +78,10 @@ export function parseInvoiceQuery(
     filter = { type: "student", value: student };
   } else if (invoiceNumber) {
     filter = { type: "invoiceNumber", value: invoiceNumber };
-  } else if (timbrado) {
-    filter = { type: "timbrado", value: timbrado };
-  } else if (taxId) {
-    filter = { type: "taxId", value: taxId };
+  } else if (stampNumber) {
+    filter = { type: "stampNumber", value: stampNumber };
+  } else if (customerRuc) {
+    filter = { type: "customerRuc", value: customerRuc };
   } else if (date) {
     filter = { type: "date", value: date };
   } else if (from && to) {
@@ -118,11 +118,11 @@ function appendFilter(params: URLSearchParams, filter: InvoiceFilter): void {
     case "invoiceNumber":
       params.set("invoiceNumber", filter.value);
       break;
-    case "timbrado":
-      params.set("timbrado", filter.value);
+    case "stampNumber":
+      params.set("stampNumber", filter.value);
       break;
-    case "taxId":
-      params.set("taxId", filter.value);
+    case "customerRuc":
+      params.set("ruc", filter.value);
       break;
     case "date":
       params.set("date", filter.value);
@@ -178,21 +178,21 @@ export function describeFilter(filter: InvoiceFilter): string | null {
           ? "Pagadas"
           : "Anuladas";
     case "query":
-      return `Razón social: “${filter.value}”`;
+      return `Cliente: “${filter.value}”`;
     case "student":
       return `Alumno #${filter.value}`;
     case "invoiceNumber":
       return `Factura ${filter.value}`;
-    case "timbrado":
+    case "stampNumber":
       return `Timbrado ${filter.value}`;
-    case "taxId":
+    case "customerRuc":
       return `RUC ${filter.value}`;
     case "date":
       return `Emitida el ${formatDate(filter.value)}`;
     case "dateRange":
       return `Del ${formatDate(filter.from)} al ${formatDate(filter.to)}`;
     case "amountRange":
-      return `Subtotal entre ${formatCurrency(Number(filter.min))} y ${formatCurrency(Number(filter.max))}`;
+      return `Total entre ${formatCurrency(Number(filter.min))} y ${formatCurrency(Number(filter.max))}`;
     case "saleCondition":
       return filter.value === "CONTADO" ? "Venta al contado" : "Venta a crédito";
     case "none":

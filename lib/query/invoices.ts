@@ -13,14 +13,14 @@ import {
   deleteInvoice,
   getInvoice,
   getInvoiceStats,
-  getNextInvoiceNumber,
+  getValidTaxStamps,
   listInvoices,
   updateInvoiceFromForm,
 } from "@/lib/invoices/api";
 import type {
   InvoiceQuery,
   InvoiceStatus,
-  InvoiceTimbrado,
+  IssuerInfo,
   ParsedInvoice,
 } from "@/lib/invoices/types";
 
@@ -31,8 +31,7 @@ export const invoiceKeys = {
   details: () => [...invoiceKeys.all, "detail"] as const,
   detail: (id: number) => [...invoiceKeys.details(), id] as const,
   stats: () => [...invoiceKeys.all, "stats"] as const,
-  nextNumbers: (keys: string[]) =>
-    [...invoiceKeys.all, "next-numbers", keys] as const,
+  taxStamps: () => [...invoiceKeys.all, "tax-stamps"] as const,
 };
 
 export function useInvoices(query: InvoiceQuery) {
@@ -59,33 +58,11 @@ export function useInvoiceStats() {
   });
 }
 
-export function useNextInvoiceNumbers(timbrados: InvoiceTimbrado[]) {
-  const keys = timbrados.map((option) => option.key);
-
+export function useValidTaxStamps() {
   return useQuery({
-    queryKey: invoiceKeys.nextNumbers(keys),
-    queryFn: async () => {
-      const entries = await Promise.all(
-        timbrados.map(async (option) => {
-          try {
-            const number = await getNextInvoiceNumber(
-              option.timbrado,
-              option.serie,
-            );
-            return [option.key, number] as const;
-          } catch {
-            return null;
-          }
-        }),
-      );
-
-      return Object.fromEntries(
-        entries.filter(
-          (entry): entry is readonly [string, string] => entry !== null,
-        ),
-      );
-    },
-    staleTime: 15_000,
+    queryKey: invoiceKeys.taxStamps(),
+    queryFn: getValidTaxStamps,
+    staleTime: 60_000,
   });
 }
 
@@ -93,7 +70,13 @@ export function useCreateInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: ParsedInvoice) => createInvoiceFromForm(data),
+    mutationFn: ({
+      data,
+      issuer,
+    }: {
+      data: ParsedInvoice;
+      issuer: IssuerInfo;
+    }) => createInvoiceFromForm(data, issuer),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
     },
@@ -104,8 +87,15 @@ export function useUpdateInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: ParsedInvoice }) =>
-      updateInvoiceFromForm(id, data),
+    mutationFn: ({
+      id,
+      data,
+      issuer,
+    }: {
+      id: number;
+      data: ParsedInvoice;
+      issuer: IssuerInfo;
+    }) => updateInvoiceFromForm(id, data, issuer),
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
       if (invoice.id != null) {
