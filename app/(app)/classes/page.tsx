@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Plus, RefreshCw } from "lucide-react";
 
 import { ClassesList } from "@/components/academic/classes-list";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { usePagedFilter } from "@/lib/use-paged-filter";
 
 function ClassesContent() {
+  const params = useSearchParams();
   const filter = usePagedFilter("level", "ASC");
   const { can } = usePermissions();
 
@@ -25,7 +27,7 @@ function ClassesContent() {
       </div>
 
       <div className="mb-6 flex items-center justify-between">
-        <SearchBar placeholder="Buscar..." />
+        <SearchBar placeholder="Buscar..." defaultValue={params.get("q") ?? undefined} />
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
             <Link href="/classes" className="flex items-center gap-2">

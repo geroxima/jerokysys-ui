@@ -29,8 +29,7 @@ function DisciplinesContent() {
       <div className="mb-6 flex items-center justify-between">
         <SearchBar
           placeholder="Buscar por nombre..."
-          defaultValue={params.get("name") ?? undefined}
-          paramName="name"
+          defaultValue={params.get("q") ?? undefined}
         />
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">

@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./labels";
 export * from "./client";
 export * from "./exams";
 export * from "./exam-results";

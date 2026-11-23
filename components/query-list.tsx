@@ -17,10 +17,14 @@ type QueryListProps<T extends { id: number | null }> = {
   refetch: () => void;
   page: number;
   totalPages: number;
+  totalElements?: number;
+  size?: number;
+  sort?: string;
+  direction?: string;
   baseUrl: string;
-  searchParams?: Record<string, string>;
   rowDoubleClickBaseUrl?: string;
   rowEditBaseUrl?: string;
+  onDelete?: (row: T) => void;
 };
 
 export function QueryList<T extends { id: number | null }>({
@@ -33,10 +37,14 @@ export function QueryList<T extends { id: number | null }>({
   refetch,
   page,
   totalPages,
+  totalElements,
+  size,
+  sort,
+  direction,
   baseUrl,
-  searchParams,
   rowDoubleClickBaseUrl,
   rowEditBaseUrl,
+  onDelete,
 }: QueryListProps<T>) {
   if (isLoading) {
     return <TableSkeleton columns={columns.length} />;
@@ -71,12 +79,16 @@ export function QueryList<T extends { id: number | null }>({
         data={data ?? []}
         rowDoubleClickBaseUrl={rowDoubleClickBaseUrl}
         rowEditBaseUrl={rowEditBaseUrl}
+        onDelete={onDelete}
       />
       <PaginationBar
         page={page}
+        size={size ?? 10}
+        totalElements={totalElements ?? 0}
         totalPages={totalPages}
         baseUrl={baseUrl}
-        searchParams={searchParams ?? {}}
+        sort={sort}
+        direction={direction}
       />
     </div>
   );

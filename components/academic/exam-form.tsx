@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { classLabel, studentLabel, toNameMap } from "@/lib/academic/labels";
 import { useAllClasses } from "@/lib/query/classes";
+import { useAllDisciplines } from "@/lib/query/disciplines";
 import { useSaveExam } from "@/lib/query/exams";
+import { useAllStudents } from "@/lib/query/students";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,7 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type {
-  DanceClassDTO,
   ExamDTO,
   ExamResultDTO,
 } from "@/lib/academic";
@@ -31,10 +33,6 @@ type ResultRow = {
   score: string;
   remarks: string;
 };
-
-function classLabel(danceClass: DanceClassDTO) {
-  return `Clase #${danceClass.id} · ${danceClass.level} · ${danceClass.dayOfWeek} ${danceClass.startTime}-${danceClass.endTime}`;
-}
 
 export function ExamForm({
   initialExam,
@@ -51,6 +49,11 @@ export function ExamForm({
     isLoading: isLoadingClasses,
     error: classesError,
   } = useAllClasses();
+  const { data: disciplines = [] } = useAllDisciplines();
+  const {
+    data: students = [],
+    isLoading: isLoadingStudents,
+  } = useAllStudents();
   const [examName, setExamName] = useState(initialExam?.examName ?? "");
   const [examDate, setExamDate] = useState(initialExam?.examDate ?? "");
   const [danceClassId, setDanceClassId] = useState(
@@ -64,11 +67,18 @@ export function ExamForm({
       remarks: result.remarks ?? "",
     })),
   );
+  const disciplineMap = toNameMap(disciplines, (discipline) => discipline.name);
   const classOptions = classes
     .filter((danceClass) => danceClass.id !== null)
     .map((danceClass) => ({
       value: String(danceClass.id),
-      label: classLabel(danceClass),
+      label: classLabel(danceClass, disciplineMap.get(danceClass.disciplineId)),
+    }));
+  const studentItems = students
+    .filter((student) => student.id !== null)
+    .map((student) => ({
+      value: String(student.id),
+      label: studentLabel(student),
     }));
 
   useEffect(() => {
@@ -128,6 +138,13 @@ export function ExamForm({
         );
       } else {
         toast.success(isEditing ? "Examen actualizado" : "Examen creado");
+      }
+
+      if (!isEditing) {
+        setExamName("");
+        setExamDate("");
+        setDanceClassId("");
+        setResults([]);
       }
 
       router.push(
@@ -203,16 +220,11 @@ export function ExamForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      {classes
-                        .filter((danceClass) => danceClass.id !== null)
-                        .map((danceClass) => (
-                          <SelectItem
-                            key={danceClass.id}
-                            value={String(danceClass.id)}
-                          >
-                            {classLabel(danceClass)}
-                          </SelectItem>
-                        ))}
+                      {classOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -249,17 +261,36 @@ export function ExamForm({
                 {results.map((row, index) => (
                   <div key={row.id ?? `new-${index}`} className="grid grid-cols-4 items-end gap-3">
                     <div>
-                      <Label htmlFor={`studentId-${index}`}>ID Alumno</Label>
-                      <Input
-                        id={`studentId-${index}`}
-                        type="number"
-                        min="1"
+                      <Label htmlFor={`studentId-${index}`}>Alumno</Label>
+                      <Select
                         value={row.studentId}
-                        onChange={(event) =>
-                          updateResultRow(index, "studentId", event.target.value)
+                        items={studentItems}
+                        onValueChange={(value) =>
+                          updateResultRow(index, "studentId", value ?? "")
                         }
-                        required={row.id !== undefined}
-                      />
+                        disabled={isLoadingStudents || students.length === 0}
+                      >
+                        <SelectTrigger id={`studentId-${index}`} className="w-full">
+                          <SelectValue
+                            placeholder={
+                              isLoadingStudents
+                                ? "Cargando..."
+                                : students.length === 0
+                                  ? "Sin alumnos"
+                                  : "Seleccionar alumno"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students
+                            .filter((student) => student.id !== null)
+                            .map((student) => (
+                              <SelectItem key={student.id} value={String(student.id)}>
+                                {studentLabel(student)}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor={`score-${index}`}>Puntaje</Label>

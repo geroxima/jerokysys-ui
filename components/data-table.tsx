@@ -23,7 +23,9 @@ type ColumnFormat =
       kind: "badge";
       labels: Record<string, string>;
       colors: Record<string, string>;
-    };
+    }
+  | { kind: "lookup"; map: Map<number, string>; fallback?: string }
+  | { kind: "map"; map: Record<string, string>; fallback?: string };
 
 export type Column<T> = {
   header: string;
@@ -42,6 +44,7 @@ type DataTableProps<T> = {
   onRowClick?: (row: T) => void;
   rowDoubleClickBaseUrl?: string;
   rowEditBaseUrl?: string;
+  onDelete?: (row: T) => void;
 };
 
 export function DataTable<T extends { id: number | null }>({
@@ -52,6 +55,7 @@ export function DataTable<T extends { id: number | null }>({
   onRowClick,
   rowDoubleClickBaseUrl,
   rowEditBaseUrl,
+  onDelete,
 }: DataTableProps<T>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -67,7 +71,8 @@ export function DataTable<T extends { id: number | null }>({
 
   const SortIcon = ({ column }: { column: Column<T> }) => {
     const key = String(column.accessorKey);
-    if (!column.sortable) return <ArrowUpDown className="size-3 ml-1 opacity-40" />;
+    if (!column.sortable)
+      return <ArrowUpDown className="size-3 ml-1 opacity-40" />;
     if (sort === key) {
       return direction === "ASC" ? (
         <ArrowUp className="size-3 ml-1" />
@@ -88,10 +93,15 @@ export function DataTable<T extends { id: number | null }>({
                 key={String(col.accessorKey)}
                 className={cn(
                   "font-medium text-muted-foreground",
-                  col.sortable && "cursor-pointer hover:bg-muted/50 select-none",
+                  col.sortable &&
+                    "cursor-pointer hover:bg-muted/50 select-none",
                   col.className,
                 )}
-                onClick={col.sortable ? () => handleSort(String(col.accessorKey)) : undefined}
+                onClick={
+                  col.sortable
+                    ? () => handleSort(String(col.accessorKey))
+                    : undefined
+                }
               >
                 <span className="inline-flex items-center">
                   {col.header}
@@ -99,7 +109,7 @@ export function DataTable<T extends { id: number | null }>({
                 </span>
               </TableHead>
             ))}
-            {rowDoubleClickBaseUrl || rowEditBaseUrl ? (
+            {rowDoubleClickBaseUrl || rowEditBaseUrl || onDelete ? (
               <TableHead className="text-right">Acciones</TableHead>
             ) : null}
           </TableRow>
@@ -110,7 +120,7 @@ export function DataTable<T extends { id: number | null }>({
               <TableCell
                 colSpan={
                   columns.length +
-                  (rowDoubleClickBaseUrl || rowEditBaseUrl ? 1 : 0)
+                  (rowDoubleClickBaseUrl || rowEditBaseUrl || onDelete ? 1 : 0)
                 }
                 className="h-24 text-center text-muted-foreground"
               >
@@ -127,7 +137,11 @@ export function DataTable<T extends { id: number | null }>({
                     ? () => router.push(`${rowDoubleClickBaseUrl}/${row.id}`)
                     : undefined
                 }
-                title={rowDoubleClickBaseUrl ? "Doble clic para ver el detalle" : undefined}
+                title={
+                  rowDoubleClickBaseUrl
+                    ? "Doble clic para ver el detalle"
+                    : undefined
+                }
                 className={
                   onRowClick || rowDoubleClickBaseUrl
                     ? "cursor-pointer hover:bg-muted/50"
@@ -136,35 +150,66 @@ export function DataTable<T extends { id: number | null }>({
               >
                 {columns.map((col) => {
                   const value = row[col.accessorKey];
-                  const text = value == null ? col.emptyText ?? "" : String(value);
+                  const text =
+                    value == null ? (col.emptyText ?? "") : String(value);
                   let content: React.ReactNode = text;
 
                   if (col.format === "strong") {
                     content = <span className="font-medium">{text}</span>;
                   } else if (col.format === "muted") {
-                    content = <span className="text-muted-foreground">{text}</span>;
+                    content = (
+                      <span className="text-muted-foreground">{text}</span>
+                    );
                   } else if (col.format === "currency") {
-                    content = value == null ? col.emptyText ?? "—" : `$${text}`;
-                  } else if (typeof col.format === "object" && col.format.kind === "timeRange") {
+                    content =
+                      value == null ? (col.emptyText ?? "—") : `$${text}`;
+                  } else if (
+                    typeof col.format === "object" &&
+                    col.format.kind === "timeRange"
+                  ) {
                     content = `${text} - ${String(row[col.format.endKey as keyof T] ?? "")}`;
-                  } else if (typeof col.format === "object" && col.format.kind === "badge") {
+                  } else if (
+                    typeof col.format === "object" &&
+                    col.format.kind === "badge"
+                  ) {
                     content = (
                       <Badge
                         variant="secondary"
-                        className={col.format.colors[text] ?? "bg-gray-100 text-gray-800"}
+                        className={
+                          col.format.colors[text] ?? "bg-gray-100 text-gray-800"
+                        }
                       >
-                        {col.format.labels[text] ?? (text || col.emptyText || "—")}
+                        {col.format.labels[text] ??
+                          (text || col.emptyText || "—")}
                       </Badge>
                     );
+                  } else if (
+                    typeof col.format === "object" &&
+                    col.format.kind === "lookup"
+                  ) {
+                    const resolved =
+                      value == null
+                        ? undefined
+                        : col.format.map.get(Number(value));
+                    content = resolved ?? col.format.fallback ?? text;
+                  } else if (
+                    typeof col.format === "object" &&
+                    col.format.kind === "map"
+                  ) {
+                    content =
+                      col.format.map[text] ?? col.format.fallback ?? text;
                   }
 
                   return (
-                    <TableCell key={String(col.accessorKey)} className={col.className}>
+                    <TableCell
+                      key={String(col.accessorKey)}
+                      className={col.className}
+                    >
                       {content}
                     </TableCell>
                   );
                 })}
-                {rowDoubleClickBaseUrl || rowEditBaseUrl ? (
+                {rowDoubleClickBaseUrl || rowEditBaseUrl || onDelete ? (
                   <TableCell className="space-x-3 text-right">
                     {rowDoubleClickBaseUrl ? (
                       <Link
@@ -183,6 +228,19 @@ export function DataTable<T extends { id: number | null }>({
                       >
                         Editar
                       </Link>
+                    ) : null}
+                    {onDelete ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDelete(row);
+                        }}
+                        onDoubleClick={(event) => event.stopPropagation()}
+                        className="text-sm font-medium text-destructive hover:underline cursor-pointer"
+                      >
+                        Eliminar
+                      </button>
                     ) : null}
                   </TableCell>
                 ) : null}

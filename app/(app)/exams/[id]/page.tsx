@@ -19,10 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { classLabel, studentLabel, toNameMap } from "@/lib/academic/labels";
 import { isNotFound } from "@/lib/api-client";
 import { useClass } from "@/lib/query/classes";
 import { useExam } from "@/lib/query/exams";
 import { useExamResultsByExam } from "@/lib/query/exam-results";
+import { useAllStudents } from "@/lib/query/students";
 import { cn } from "@/lib/utils";
 
 export default function ExamPreviewPage() {
@@ -50,6 +52,8 @@ function ExamPreviewContent() {
   const examQuery = useExam(examId);
   const resultsQuery = useExamResultsByExam(examId);
   const classQuery = useClass(examQuery.data?.danceClassId);
+  const { data: students = [] } = useAllStudents();
+  const studentMap = toNameMap(students, studentLabel);
 
   if (examQuery.isLoading || resultsQuery.isLoading) {
     return (
@@ -136,9 +140,7 @@ function ExamPreviewContent() {
           <div>
             <p className="text-sm text-muted-foreground">Clase</p>
             <p className="font-medium">
-              {danceClass
-                ? `${danceClass.level} · ${danceClass.dayOfWeek} ${danceClass.startTime}-${danceClass.endTime}`
-                : `Clase #${exam.danceClassId}`}
+              {danceClass ? classLabel(danceClass) : "—"}
             </p>
           </div>
           <div>
@@ -176,8 +178,8 @@ function ExamPreviewContent() {
                   <TableRow key={result.id ?? `${result.studentId}-${index}`}>
                     <TableCell className="font-medium">
                       {result.studentId == null
-                        ? "Alumno sin ID"
-                        : `Alumno #${result.studentId}`}
+                        ? "—"
+                        : studentMap.get(result.studentId) ?? "—"}
                     </TableCell>
                     <TableCell>{result.score ?? "—"}</TableCell>
                     <TableCell>{result.remarks || "—"}</TableCell>

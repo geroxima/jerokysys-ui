@@ -51,6 +51,16 @@ export type DisciplineDTO = {
   description: string | null;
 };
 
+export type StudentDTO = {
+  id: number | null;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  email: string | null;
+  birthDate: string;
+  guardianId: number | null;
+};
+
 export type DanceClassDTO = {
   id: number | null;
   disciplineId: number;

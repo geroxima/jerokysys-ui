@@ -16,6 +16,8 @@ export const examResultKeys = {
   all: ["exam-results"] as const,
   lists: () => [...examResultKeys.all, "list"] as const,
   list: (filter: PagedFilter) => [...examResultKeys.lists(), filter] as const,
+  details: () => [...examResultKeys.all, "detail"] as const,
+  detail: (id: number) => [...examResultKeys.details(), id] as const,
   byExam: (examId: number) => [...examResultKeys.all, "by-exam", examId] as const,
 };
 
@@ -39,11 +41,29 @@ export function useExamResultsByExam(examId: number | null) {
   });
 }
 
+export function useExamResult(id: number | null | undefined) {
+  return useQuery({
+    queryKey: examResultKeys.detail(id ?? 0),
+    queryFn: () => apiGet<ExamResultDTO>(`/exam-results/${id}`),
+    enabled: id != null && Number.isInteger(id) && id > 0,
+  });
+}
+
 export function useCreateExamResult() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: Omit<ExamResultDTO, "id">) =>
       apiWrite<ExamResultDTO>("/exam-results", "POST", dto),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: examResultKeys.all }),
+  });
+}
+
+export function useUpdateExamResult() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: number; dto: Omit<ExamResultDTO, "id"> }) =>
+      apiWrite<ExamResultDTO>(`/exam-results/${id}`, "PUT", dto),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: examResultKeys.all }),
   });

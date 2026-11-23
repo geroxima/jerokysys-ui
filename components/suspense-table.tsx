@@ -1,8 +1,3 @@
-import { Suspense } from "react";
-import { DataTable, type Column } from "./data-table";
-import { PaginationBar } from "./pagination-bar";
-import type { PagedFilter } from "@/lib/academic/types";
-
 type TableSkeletonProps = {
   columns: number;
 };
@@ -31,68 +26,5 @@ export function TableSkeleton({ columns }: TableSkeletonProps) {
         ))}
       </div>
     </div>
-  );
-}
-
-type SuspenseTableProps<T> = {
-  columns: Column<T>[];
-  fetcher: (filter: PagedFilter) => Promise<{
-    content: T[];
-    page: number;
-    totalPages: number;
-  }>;
-  filter: PagedFilter;
-  baseUrl: string;
-  searchParams?: Record<string, string | undefined>;
-  rowDoubleClickBaseUrl?: string;
-  rowEditBaseUrl?: string;
-};
-
-async function DataTableSection<T extends { id: number | null }>({
-  columns,
-  fetcher,
-  filter,
-  baseUrl,
-  searchParams = {},
-  rowDoubleClickBaseUrl,
-  rowEditBaseUrl,
-}: Omit<SuspenseTableProps<T>, "sort" | "direction">) {
-  const data = await fetcher(filter);
-
-  // Filter out undefined values from searchParams
-  const cleanSearchParams: Record<string, string> = {};
-  for (const [key, value] of Object.entries(searchParams)) {
-    if (value !== undefined) {
-      cleanSearchParams[key] = value;
-    }
-  }
-
-  return (
-    <>
-      <DataTable
-        columns={columns}
-        data={data.content}
-        sort={filter.sort}
-        direction={filter.direction}
-        rowDoubleClickBaseUrl={rowDoubleClickBaseUrl}
-        rowEditBaseUrl={rowEditBaseUrl}
-      />
-      <PaginationBar
-        page={data.page}
-        totalPages={data.totalPages}
-        baseUrl={baseUrl}
-        searchParams={cleanSearchParams}
-      />
-    </>
-  );
-}
-
-export function SuspenseTable<T extends { id: number | null }>(
-  props: SuspenseTableProps<T>,
-) {
-  return (
-    <Suspense fallback={<TableSkeleton columns={props.columns.length} />}>
-      <DataTableSection {...props} />
-    </Suspense>
   );
 }

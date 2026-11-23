@@ -26,11 +26,20 @@ export function fetchExams(filter: PagedFilter) {
   return apiGet<PageResult<ExamDTO>>(`/exams?${buildPagedParams(filter)}`);
 }
 
-export function useExams(filter: PagedFilter) {
+export function useExams(filter: PagedFilter, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: examKeys.list(filter),
     queryFn: () => fetchExams(filter),
     placeholderData: keepPreviousData,
+    enabled: options.enabled ?? true,
+  });
+}
+
+export function useAllExams(options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: examKeys.all,
+    queryFn: () => apiGet<ExamDTO[]>("/exams/all"),
+    enabled: options.enabled ?? true,
   });
 }
 

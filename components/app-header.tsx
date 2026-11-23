@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/query/session";
 
 export function AppHeader() {
-  const router = useRouter();
   const { data: session, isLoading } = useSession();
   const [pending, setPending] = useState(false);
 
@@ -21,11 +19,16 @@ export function AppHeader() {
       await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "same-origin",
+        signal: AbortSignal.timeout(5000),
       });
-    } finally {
-      router.replace("/login");
-      router.refresh();
+    } catch {
+      // Si la llamada falla igual limpiamos la sesión con la navegación completa.
     }
+
+    // Navegación completa a propósito: descarta el estado y el caché del cliente
+    // y vuelve a leer la cookie de sesión ya borrada por el servidor.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = "/login";
   }
 
   return (
