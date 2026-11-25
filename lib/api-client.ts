@@ -1,4 +1,5 @@
 import type { PagedFilter, ResponseWrapper } from "@/lib/academic/types";
+import { clearClientToken, getClientToken } from "@/lib/client-token";
 
 export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1"
@@ -54,6 +55,7 @@ async function handleUnauthorized() {
   }
 
   handlingUnauthorized = true;
+  clearClientToken();
 
   try {
     await fetch("/api/auth/logout", {
@@ -113,6 +115,13 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
+
+  // Cuando la API vive en otro origen la cookie httpOnly no viaja, así que el
+  // navegador adjunta el token que guardó al iniciar sesión.
+  const token = getClientToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");

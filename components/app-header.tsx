@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { clearClientToken } from "@/lib/client-token";
 import { useSession } from "@/lib/query/session";
 
 export function AppHeader() {
@@ -23,6 +24,7 @@ export function AppHeader() {
         credentials: "same-origin",
       });
     } finally {
+      clearClientToken();
       router.replace("/login");
       router.refresh();
     }

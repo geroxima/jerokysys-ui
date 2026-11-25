@@ -89,5 +89,7 @@ export async function POST(request: Request) {
 
   await saveSession(token);
 
-  return NextResponse.json({ ok: true });
+  // El token viaja también al cliente para que pueda enviarlo como
+  // Authorization: Bearer. La cookie httpOnly no cruza a otro origen.
+  return NextResponse.json({ ok: true, token });
 }

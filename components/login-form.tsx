@@ -7,6 +7,7 @@ import { KeyRound, Loader2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { setClientToken } from "@/lib/client-token";
 
 export function LoginForm() {
   const router = useRouter();
@@ -32,11 +33,16 @@ export function LoginForm() {
 
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
+        token?: string;
       } | null;
 
       if (!response.ok) {
         setError(payload?.error ?? "No se pudo iniciar sesión.");
         return;
+      }
+
+      if (payload?.token) {
+        setClientToken(payload.token);
       }
 
       router.replace("/dash");
