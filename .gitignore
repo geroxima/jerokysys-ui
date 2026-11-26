@@ -20,6 +20,9 @@
 # production
 /build
 
+# maven (WAR)
+/infra/ui-war/target/
+
 # misc
 .DS_Store
 *.pem
