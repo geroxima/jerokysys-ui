@@ -132,7 +132,7 @@ export function ExamForm({
 
       router.push(
         isEditing && result.exam.id
-          ? `/exams/${result.exam.id}`
+          ? `/exams/detail?id=${result.exam.id}`
           : "/exams",
       );
     } catch (error) {

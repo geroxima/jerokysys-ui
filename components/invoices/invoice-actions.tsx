@@ -145,14 +145,14 @@ export function InvoiceActions({
             className="w-auto min-w-52 whitespace-nowrap"
           >
             <DropdownMenuItem
-              render={<Link href={`/invoices/${invoiceId}`} />}
+              render={<Link href={`/invoices/detail?id=${invoiceId}`} />}
             >
               <Eye aria-hidden="true" />
               Ver detalle
             </DropdownMenuItem>
             {canEdit ? (
               <DropdownMenuItem
-                render={<Link href={`/invoices/${invoiceId}/edit`} />}
+                render={<Link href={`/invoices/edit?id=${invoiceId}`} />}
               >
                 <Pencil aria-hidden="true" />
                 Editar
@@ -185,7 +185,7 @@ export function InvoiceActions({
         <div className="flex flex-wrap items-center gap-2">
           {canEdit ? (
             <Link
-              href={`/invoices/${invoiceId}/edit`}
+              href={`/invoices/edit?id=${invoiceId}`}
               className={cn(
                 buttonVariants({ variant: "outline", size: "lg" }),
                 "h-9 bg-background",

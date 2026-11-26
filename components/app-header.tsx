@@ -15,19 +15,10 @@ export function AppHeader() {
 
   const initial = session?.username.trim().charAt(0).toUpperCase() || "?";
 
-  async function handleLogout() {
+  function handleLogout() {
     setPending(true);
-
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-    } finally {
-      clearClientToken();
-      router.replace("/login");
-      router.refresh();
-    }
+    clearClientToken();
+    router.replace("/login/");
   }
 
   return (

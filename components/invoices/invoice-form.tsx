@@ -268,7 +268,7 @@ export function InvoiceForm({
               issuer,
             });
 
-      router.push(`/invoices/${invoice.id}`);
+      router.push(`/invoices/detail?id=${invoice.id}`);
     } catch (error) {
       setMessage(
         error instanceof Error

@@ -2,28 +2,32 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { getClientToken } from "@/lib/client-token";
+import { decodeJwt, isJwtExpired } from "@/lib/jwt";
+
 export type ClientSession = {
   username: string;
   role: string;
   expiresAt: number;
 };
 
-async function fetchSession(): Promise<ClientSession | null> {
-  const response = await fetch("/api/auth/session", {
-    method: "GET",
-    credentials: "same-origin",
-    cache: "no-store",
-  });
+function readSession(): ClientSession | null {
+  const token = getClientToken();
 
-  if (response.status === 401) {
+  if (!token || isJwtExpired(token)) {
     return null;
   }
 
-  if (!response.ok) {
-    throw new Error("No se pudo leer la sesión.");
+  const payload = decodeJwt(token);
+  if (!payload) {
+    return null;
   }
 
-  return (await response.json()) as ClientSession;
+  return {
+    username: payload.username ?? "",
+    role: payload.role ?? "",
+    expiresAt: (payload.exp ?? 0) * 1000,
+  };
 }
 
 export const sessionKeys = {
@@ -33,7 +37,7 @@ export const sessionKeys = {
 export function useSession() {
   return useQuery({
     queryKey: sessionKeys.all,
-    queryFn: fetchSession,
+    queryFn: readSession,
     staleTime: 60_000,
     retry: false,
   });

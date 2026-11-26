@@ -7,7 +7,17 @@ import { KeyRound, Loader2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { API_BASE_URL } from "@/lib/api-base";
 import { setClientToken } from "@/lib/client-token";
+
+function formatWait(seconds: number) {
+  if (seconds < 60) {
+    return `${seconds} ${seconds === 1 ? "segundo" : "segundos"}`;
+  }
+
+  const minutes = Math.ceil(seconds / 60);
+  return `${minutes} ${minutes === 1 ? "minuto" : "minutos"}`;
+}
 
 export function LoginForm() {
   const router = useRouter();
@@ -24,29 +34,44 @@ export function LoginForm() {
     const password = String(formData.get("password") ?? "");
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
-        credentials: "same-origin",
+        credentials: "omit",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
       });
 
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-        token?: string;
-      } | null;
-
-      if (!response.ok) {
-        setError(payload?.error ?? "No se pudo iniciar sesión.");
+      if (response.status === 401) {
+        setError("Usuario o contraseña incorrectos.");
         return;
       }
 
-      if (payload?.token) {
-        setClientToken(payload.token);
+      if (response.status === 429) {
+        const retryAfter = Number(response.headers.get("Retry-After") ?? 0);
+        setError(
+          retryAfter > 0
+            ? `Demasiados intentos. Volvé a intentar en ${formatWait(Math.ceil(retryAfter))}.`
+            : "Demasiados intentos. Esperá unos minutos y volvé a intentar.",
+        );
+        return;
       }
 
-      router.replace("/dash");
-      router.refresh();
+      if (!response.ok) {
+        setError("Ocurrió un error inesperado. Intentá de nuevo.");
+        return;
+      }
+
+      const token = (await response.text()).trim();
+
+      if (token.split(".").length !== 3) {
+        setError("La respuesta del servidor no es válida.");
+        return;
+      }
+
+      setClientToken(token);
+      router.replace("/dash/");
     } catch {
       setError(
         "No se pudo conectar con el servidor. Verificá que la API esté en línea.",

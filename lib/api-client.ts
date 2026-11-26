@@ -1,9 +1,8 @@
 import type { PagedFilter, ResponseWrapper } from "@/lib/academic/types";
+import { API_BASE_URL } from "@/lib/api-base";
 import { clearClientToken, getClientToken } from "@/lib/client-token";
 
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1"
-).replace(/\/+$/, "");
+export { API_BASE_URL };
 
 export class ApiError extends Error {
   status: number;
@@ -45,29 +44,17 @@ export function buildPagedParams(filter: PagedFilter): string {
 let handlingUnauthorized = false;
 
 /**
- * La cookie es httpOnly: el cliente no puede borrarla. Cuando el gateway
- * responde 401, limpiamos la sesión por el endpoint de logout y volvemos al
+ * Cuando el gateway responde 401, limpiamos el token local y volvemos al
  * login. El flag evita varios redirects si hay llamadas en paralelo.
  */
-async function handleUnauthorized() {
+function handleUnauthorized() {
   if (typeof window === "undefined" || handlingUnauthorized) {
     return;
   }
 
   handlingUnauthorized = true;
   clearClientToken();
-
-  try {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "same-origin",
-    });
-  } catch {
-    // Si el logout falla igual mandamos al login; proxy.ts limpia la cookie
-    // vencida en la próxima navegación.
-  }
-
-  window.location.replace("/login");
+  window.location.replace("/login/");
 }
 
 async function unwrap<T>(response: Response): Promise<T> {
@@ -116,8 +103,8 @@ export async function apiRequest<T>(
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
 
-  // Cuando la API vive en otro origen la cookie httpOnly no viaja, así que el
-  // navegador adjunta el token que guardó al iniciar sesión.
+  // La API vive en otro origen, así que el navegador adjunta el token que
+  // guardó al iniciar sesión como Authorization: Bearer.
   const token = getClientToken();
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -135,7 +122,7 @@ export async function apiRequest<T>(
       {
         ...init,
         headers,
-        credentials: "include",
+        credentials: "omit",
         cache: "no-store",
       },
     );
@@ -148,7 +135,7 @@ export async function apiRequest<T>(
   }
 
   if (response.status === 401) {
-    await handleUnauthorized();
+    handleUnauthorized();
   }
 
   return unwrap<T>(response);

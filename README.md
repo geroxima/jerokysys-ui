@@ -5,7 +5,7 @@ alumnos, responsables, profesores, facturas, campañas, asistencia y ajustes.
 
 ## Tecnologías
 
-- Next.js 16 con App Router
+- Next.js 16 con App Router y export estático (SPA)
 - React 19
 - TypeScript
 - Tailwind CSS 4
@@ -16,6 +16,7 @@ alumnos, responsables, profesores, facturas, campañas, asistencia y ajustes.
 - Node.js
 - pnpm 11.27.0
 - Una API de JerokySys en ejecución
+- Un servidor de archivos estáticos (o Tomcat) para publicar `out/`
 
 ## Instalación
 
@@ -29,46 +30,56 @@ alumnos, responsables, profesores, facturas, campañas, asistencia y ajustes.
 
    ```bash
    NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
-   # Opcional: URL que usa el login del lado del servidor.
-   # API_BASE_URL=http://localhost:8080/api/v1
    ```
 
    Si no la definís, la aplicación usa `http://localhost:8080/api/v1`.
+   El origen de la UI debe estar permitido por CORS en el gateway; en
+   `localhost:3000` ya lo está.
    Los datos fiscales del emisor (`NEXT_PUBLIC_ISSUER_*`) también van en
    `.env.local`. Los timbrados se cargan desde `GET /tax-stamps/valid`.
 
 ## Scripts
 
-| Comando      | Acción                              |
-| ------------ | ----------------------------------- |
-| `pnpm dev`   | Inicia el servidor de desarrollo    |
-| `pnpm build` | Genera la compilación de producción |
-| `pnpm start` | Inicia la aplicación compilada      |
-| `pnpm lint`  | Ejecuta ESLint                      |
+| Comando      | Acción                             |
+| ------------ | ---------------------------------- |
+| `pnpm dev`   | Inicia el servidor de desarrollo   |
+| `pnpm build` | Genera el sitio estático en `out/` |
+| `pnpm lint`  | Ejecuta ESLint                     |
 
-Abre [http://localhost:3000](http://localhost:3000). La ruta `/` redirige a
-`/login` o a `/dash` según el estado de la sesión.
+`pnpm start` ya no aplica: la app se exporta como sitio estático.
+
+Para probar el build:
+
+```bash
+pnpm build
+python -m http.server 3000 --bind 0.0.0.0 --directory out
+# o: npx serve out -l 3000
+```
+
+Abrí [http://localhost:3000](http://localhost:3000) (usá `localhost`, no
+`127.0.0.1`, porque el gateway permite ese origen exacto). La ruta `/`
+redirige a `/login/` o a `/dash/` según el token guardado en el navegador.
 
 ## Autenticación
 
-1. El formulario de `/login` llama a `POST /api/auth/login` (route handler de
-   Next).
-2. El handler envía las credenciales a `POST {API_BASE_URL}/login` y guarda el
-   JWT en la cookie `jerokysys_token`, con `httpOnly`, `sameSite: lax` y
-   `secure` en producción.
-3. `proxy.ts` redirige a `/login` si la sesión no existe o si el JWT expiró.
-4. Todas las llamadas de datos del navegador usan `lib/api-client.ts` con
-   `credentials: "include"`. El gateway copia la cookie a
-   `Authorization: Bearer` antes de validar el token.
-5. `POST /api/auth/logout` borra la cookie y `GET /api/auth/session` devuelve
-   usuario, rol y expiración (nunca el token).
-6. Si el gateway responde `401`, `lib/api-client.ts` limpia la sesión y vuelve a
-   `/login`.
+1. El formulario de `/login/` llama directo a
+   `POST {NEXT_PUBLIC_API_BASE_URL}/login`. El gateway devuelve el JWT como
+   texto plano.
+2. El navegador guarda el token en `sessionStorage` (`lib/client-token.ts`) y
+   `AuthGuard` protege las rutas del grupo `(app)`.
+3. `lib/api-client.ts` envía el token en `Authorization: Bearer` en cada
+   llamada. No hay cookie de autenticación ni middleware de servidor.
+4. Cerrar sesión borra el token y vuelve a `/login/`.
+5. Si el gateway responde `401`, `lib/api-client.ts` limpia el token y redirige
+   a `/login/`.
 
-En producción, si la UI y la API viven en subdominios distintos, definí
-`AUTH_COOKIE_DOMAIN` (por ejemplo `.jerokysys.com`) para que la cookie se envíe
-también al host de la API. Si ambas comparten origen mediante un reverse proxy,
-no hace falta.
+El gateway debe permitir CORS desde el origen de la UI. En `localhost:3000` ya
+está configurado; si abrís la UI desde otra IP o dominio, agregá ese origen a
+`app.cors.allowed-origins` del gateway o proxeá `/api/v1` por el servidor web.
+
+El token queda en `sessionStorage` (no en una cookie `httpOnly`): es una
+decisión del modo estático. La protección de rutas es del cliente, pero los
+datos siguen protegidos por el gateway. Una pestaña nueva pide login de nuevo.
 
 ## Rutas
 
@@ -84,20 +95,23 @@ no hace falta.
 | `/enrollments`         | Inscripciones    |
 | `/invoices`              | Listado y filtros de facturas          |
 | `/invoices/new`          | Alta de factura                        |
-| `/invoices/[id]`         | Detalle de factura                     |
-| `/invoices/[id]/edit`    | Edición de una factura pendiente       |
+| `/invoices/detail?id=…`  | Detalle de factura                     |
+| `/invoices/edit?id=…`    | Edición de una factura pendiente       |
+| `/exams/detail?id=…`     | Vista previa de un examen              |
+| `/exams/edit?id=…`       | Edición de un examen y sus notas       |
 | `/guardians`             | Responsables                           |
 | `/professors`            | Profesores                             |
 | `/campaigns`             | Campañas                               |
 | `/settings`              | Ajustes                                |
 
-Salvo `/login`, `/academic` y las rutas de facturación, las páginas muestran un
-texto de marcador de posición.
+Todas las rutas se prerenderizan en `out/`. Las del grupo `(app)` requieren un
+token válido en `sessionStorage`; si falta o expiró, `AuthGuard` redirige a
+`/login/`.
 
 ## Facturación
 
 Las pantallas de `/invoices` consumen el microservicio de facturación a través de
-`API_BASE_URL` y requieren un usuario con rol `ADMIN` o `SECRETARY`.
+`NEXT_PUBLIC_API_BASE_URL` y requieren un usuario con rol `ADMIN` o `SECRETARY`.
 
 - Listado paginado con resumen por estado, búsqueda por razón social y filtros
   por número, timbrado, RUC, alumno, fecha, rango de fechas, rango de subtotal y
@@ -138,14 +152,17 @@ del emisor que falten se muestran como “sin configurar”, sin romper la panta
 
 ```text
 app/
-  (app)/          Secciones protegidas y diseño con barra lateral
-  api/auth/       Route handlers de login, logout y sesión (cookie httpOnly)
-  login/          Página de inicio de sesión
-components/       Encabezado, barra lateral, formulario y componentes de UI
-  invoices/       Componentes de facturación
-lib/              Sesión, JWT, cliente de API, navegación y utilidades
-  api-client.ts   Capa única de fetch del navegador (cookie + errores + 401)
-  query/          Hooks de TanStack Query
-  invoices/       Tipos, cliente y reglas de facturación
-proxy.ts          Protección de rutas
+  (app)/            Secciones protegidas y diseño con barra lateral
+  login/            Página de inicio de sesión
+  page.tsx          Redirección cliente a /dash/ o /login/
+components/         Encabezado, barra lateral, formulario y componentes de UI
+  auth-guard.tsx    Guard de rutas basado en el token de sessionStorage
+  invoices/         Componentes de facturación
+lib/                Token, JWT, cliente de API, navegación y utilidades
+  api-base.ts       URL base de la API (NEXT_PUBLIC_API_BASE_URL)
+  api-client.ts     Capa única de fetch del navegador (Bearer + errores + 401)
+  client-token.ts   Alta/baja del token en sessionStorage
+  query/            Hooks de TanStack Query
+  invoices/         Tipos, cliente y reglas de facturación
+out/                Build estático (generado por pnpm build, ignorado por git)
 ```

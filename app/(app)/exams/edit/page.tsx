@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { RotateCw } from "lucide-react";
 
 import { ExamForm } from "@/components/academic/exam-form";
@@ -27,8 +27,8 @@ export default function EditExamPage() {
 }
 
 function EditExamContent() {
-  const params = useParams<{ id: string }>();
-  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const searchParams = useSearchParams();
+  const rawId = searchParams.get("id");
   const examId = Number(rawId);
 
   const examQuery = useExam(examId);

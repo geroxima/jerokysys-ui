@@ -132,7 +132,7 @@ export function InvoicesTable({
           <TableRow key={invoice.id}>
             <TableCell className="px-3 py-2.5">
               <Link
-                href={`/invoices/${invoice.id}`}
+                href={`/invoices/detail?id=${invoice.id}`}
                 className="font-medium hover:underline"
               >
                 {invoice.invoiceNumber}

@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, RotateCw } from "lucide-react";
 
 import { AccessDenied } from "@/components/access-denied";
@@ -59,8 +59,8 @@ export default function InvoiceDetailPage() {
 }
 
 function InvoiceDetailContent() {
-  const params = useParams<{ id: string }>();
-  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const searchParams = useSearchParams();
+  const rawId = searchParams.get("id");
   const id = Number(rawId);
   const validId = Number.isInteger(id) && id > 0;
 

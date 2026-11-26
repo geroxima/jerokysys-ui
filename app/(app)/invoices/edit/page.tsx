@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Info, RotateCw } from "lucide-react";
 
 import { AccessDenied } from "@/components/access-denied";
@@ -35,8 +35,8 @@ export default function EditInvoicePage() {
 }
 
 function EditInvoiceContent() {
-  const params = useParams<{ id: string }>();
-  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const searchParams = useSearchParams();
+  const rawId = searchParams.get("id");
   const id = Number(rawId);
   const validId = Number.isInteger(id) && id > 0;
 
@@ -120,7 +120,7 @@ function EditInvoiceContent() {
   const invoice = invoiceQuery.data;
   const backLink = (
     <Link
-      href={`/invoices/${invoice.id}`}
+      href={`/invoices/detail?id=${invoice.id}`}
       className="inline-flex w-fit items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <ArrowLeft className="size-4" aria-hidden="true" />
@@ -153,7 +153,7 @@ function EditInvoiceContent() {
 
           <div>
             <Link
-              href={`/invoices/${invoice.id}`}
+              href={`/invoices/detail?id=${invoice.id}`}
               className={cn(
                 buttonVariants({ variant: "outline", size: "lg" }),
                 "h-9 bg-background",
@@ -208,7 +208,7 @@ function EditInvoiceContent() {
           mode="edit"
           invoiceId={invoice.id}
           initialValues={invoiceToFormValues(invoice)}
-          cancelHref={`/invoices/${invoice.id}`}
+          cancelHref={`/invoices/detail?id=${invoice.id}`}
           issuer={issuer}
           taxStamps={taxStamps}
           fixedInvoiceNumber={invoice.invoiceNumber}

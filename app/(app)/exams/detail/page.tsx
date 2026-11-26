@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { RotateCw } from "lucide-react";
 
 import { NotFoundPage } from "@/components/not-found-page";
@@ -38,8 +38,8 @@ export default function ExamPreviewPage() {
 }
 
 function ExamPreviewContent() {
-  const params = useParams<{ id: string }>();
-  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const searchParams = useSearchParams();
+  const rawId = searchParams.get("id");
   const examId = Number(rawId);
 
   const examQuery = useExam(examId);
@@ -109,7 +109,7 @@ function ExamPreviewContent() {
             Volver
           </Link>
           <Link
-            href={`/exams/${examId}/edit`}
+            href={`/exams/edit?id=${examId}`}
             className={cn(buttonVariants({ size: "default" }))}
           >
             Editar / agregar notas
